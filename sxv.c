@@ -181,6 +181,7 @@ int main (int argc, char **argv)
   int grayscale = 0;
   int do_dither = 1;
   int palcount = 16;
+  float delay = 1.0;
   int red_max, green_max, blue_max;
   int desired_width =  1024;
   int desired_height = 1024;
@@ -224,6 +225,13 @@ int main (int argc, char **argv)
       if (!argv[x+1])
         return -2;
       desired_width = atoi (argv[x+1]);
+      x++;
+    }
+    else if (!strcmp (argv[x], "-d"))
+    {
+      if (!argv[x+1])
+        return -2;
+      delay = strtod (argv[x+1], NULL);
       x++;
     }
     else if (!strcmp (argv[x], "-h"))
@@ -439,8 +447,10 @@ int main (int argc, char **argv)
   }
   free (image);
   printf ("\r");
-  //if (image_no < images_c - 1)
-//    sleep (4);
+  if (image_no < images_c - 1)
+  {
+    usleep (delay * 1000.0 * 1000.0);
+  }
   }
   return 0;
 }
