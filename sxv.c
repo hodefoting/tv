@@ -98,40 +98,6 @@ void term_home ()
   sixel_out_str ( "[1;1H");
 }
 
-void *
-rescale_image (char *image, int *pw, int *ph, int max_w, int max_h)
-{
-  char *new_image;
-  int w = *pw;
-  int h = *ph;
-  float factor = 1.0f * max_w / w;
-  int x,y;
-  int i;
-  if (1.0f * max_h / h < factor)
-    factor = 1.0f * max_h / h;
-  w = ceil (w * factor);
-  h = ceil (h * factor);
-  new_image = malloc (w * h * 4);
-
-  i = 0;
-  for (y = 0; y < h; y++)
-    for (x = 0; x < w; x++)
-    {
-      int u = x / factor;
-      int v = y / factor;
-      new_image[i + 0] = image[(v * *pw + u) * 4 + 0];
-      new_image[i + 1] = image[(v * *pw + u) * 4 + 1];
-      new_image[i + 2] = image[(v * *pw + u) * 4 + 2];
-      new_image[i + 3] = image[(v * *pw + u) * 4 + 3];
-      i+=4;
-    }
-  *pw = w;
-  *ph = h;
-
-  free (image);
-  return new_image;
-}
-
 static float mask_a (int x, int y, int c)
 {
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
@@ -187,6 +153,8 @@ int main (int argc, char **argv)
   int desired_height = 1024;
   int zero_origin = 0;
   const char *path = NULL;
+
+  float factor = 0.45;
 
   unsigned char *image = NULL;
   init (&desired_width, &desired_height);
@@ -359,13 +327,18 @@ int main (int argc, char **argv)
     RED_LEVELS = GREEN_LEVELS = BLUE_LEVELS = green_max = palcount;
   }
 
+
   if (verbosity)
    sixel_outf ("%s %ix%i\n", path, w, h);
 
-  image = rescale_image (image, &w, &h, desired_width, desired_height);
+  // image = rescale_image (image, &w, &h, desired_width, desired_height);
+  int outw = desired_width;
+  int outh = desired_height;
+
   {
     if (zero_origin)
       term_home ();
+    
     sixel_start ();
       int palno = 1;
       for (red   = 0; red   < red_max; red++)
@@ -383,74 +356,127 @@ int main (int argc, char **argv)
         palno++;
       }
 
-    for (y = 0; y < h; y)
-    {
-      palno=1;
-      for (red   = 0; red   < red_max; red++)
-      for (blue  = 0; blue  < blue_max; blue++)
-      for (green = 0; green < green_max; green++)
+      /* do resampling as part of view, not as a separate step */
+      for (y = 0; y < outh; y)
       {
-        sixel_outf ( "#%d", palno++);
-        for (x = 0; x < w; x ++)
+        palno=1;
+        for (red   = 0; red   < red_max; red++)
+        for (blue  = 0; blue  < blue_max; blue++)
+        for (green = 0; green < green_max; green++)
         {
-          int binary = 0;
-          int v;
-          int dithered[4];
-          for (v = 0; v < 6 && y + v < h; v++)
+          sixel_outf ( "#%d", palno++);
+          for (x = 0; x < outw; x ++)
           {
-            if (do_dither)
+            int binary = 0;
+            int v;
+            int q = x * factor;
+            int dithered[4];
+            for (v = 0; v < 6; v++)
             {
-              dithered[0] = image[((y+v) * w + x)*4 + 0] + mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
-              dithered[1] = image[((y+v) * w + x)*4 + 1] + mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
-              dithered[2] = image[((y+v) * w + x)*4 + 2] + mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
+              int got_coverage = 0;
+              int z;
+
+              z = (y + v) * factor;
+              
+              int offset = (int)((z) * w + q)*4;
+
+              //if (z >= 0 && q >= 0 && z < h && q < w)
+              if (z < h &&
+                  q < w)
+                got_coverage = image[offset+3] > 127;
+
+              if (got_coverage)
+              {
+                if (do_dither)
+                {
+                  dithered[0] = image[offset + 0] + mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
+                  dithered[1] = image[offset + 1] + mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
+                  dithered[2] = image[offset + 2] + mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
+                }
+                else
+                {
+                  dithered[0] = image[offset + 0];
+                  dithered[1] = image[offset + 1];
+                  dithered[2] = image[offset + 2];
+                }
+                if (grayscale)
+                {
+                  dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
+                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
+                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
+                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green)
+                      )
+                    binary |= (1<<v);
+                }
+                else
+                {
+                  if ((dithered[0] * (RED_LEVELS-1)   / 255 == red) &&
+                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
+                      (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
+                      )
+                    binary |= (1<<v);
+                }
+              }
             }
-            else
-            {
-              dithered[0] = image[((y+v) * w + x)*4 + 0];
-              dithered[1] = image[((y+v) * w + x)*4 + 1];
-              dithered[2] = image[((y+v) * w + x)*4 + 2];
-            }
-            if (grayscale)
-            {
-              dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-              if (image[((y+v) * w + x)*4 + 3] > 127 && 
-                  (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                  (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                  (dithered[1] * (GREEN_LEVELS-1) / 255 == green)
-                  )
-                binary |= (1<<v);
-            }
-            else
-            {
-              if (image[((y+v) * w + x)*4 + 3] > 127 && 
-                  (dithered[0] * (RED_LEVELS-1)   / 255 == red) &&
-                  (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                  (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
-                  )
-                binary |= (1<<v);
-            }
+            sixel_out (binary);
           }
-          sixel_out (binary);
-        }
-        if (count == w)
-        {
-          count = 0;
-          current = -1;
-        }
-        else
+#if 0
+          if (count == outw)
+          {
+            count = 0;
+            current = -1;
+          }
+#endif
           sixel_cr ();
+        }
+        sixel_nl ();
+        y += 6;
       }
-      sixel_nl ();
-      y += 6;
+      sixel_end ();
     }
-    sixel_end ();
-  }
-  free (image);
-  printf ("\r");
-  if (image_no < images_c - 1)
-  {
-    usleep (delay * 1000.0 * 1000.0);
-  }
+    free (image);
+    printf ("\r");
+    if (image_no < images_c - 1)
+    {
+      usleep (delay * 1000.0 * 1000.0);
+    }
   }
   return 0;
 }
+
+
+/* not used anymore - but useful to make thumbnails and similar,. */
+void *
+rescale_image (char *image, int *pw, int *ph, int max_w, int max_h)
+{
+  char *new_image;
+  int w = *pw;
+  int h = *ph;
+  float factor = 1.0f * max_w / w;
+  int x,y;
+  int i;
+  if (1.0f * max_h / h < factor)
+    factor = 1.0f * max_h / h;
+  w = ceil (w * factor);
+  h = ceil (h * factor);
+  new_image = malloc (w * h * 4);
+
+  i = 0;
+  for (y = 0; y < h; y++)
+    for (x = 0; x < w; x++)
+    {
+      int u = x / factor;
+      int v = y / factor;
+      new_image[i + 0] = image[(v * *pw + u) * 4 + 0];
+      new_image[i + 1] = image[(v * *pw + u) * 4 + 1];
+      new_image[i + 2] = image[(v * *pw + u) * 4 + 2];
+      new_image[i + 3] = image[(v * *pw + u) * 4 + 3];
+      i+=4;
+    }
+  *pw = w;
+  *ph = h;
+
+  free (image);
+  return new_image;
+}
+
