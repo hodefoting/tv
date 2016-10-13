@@ -154,7 +154,10 @@ int main (int argc, char **argv)
   int zero_origin = 0;
   const char *path = NULL;
 
-  float factor = 0.45;
+  float factor = -1.0;
+
+  float x_offset = 0.0;
+  float y_offset = 0.0;
 
   unsigned char *image = NULL;
   init (&desired_width, &desired_height);
@@ -180,6 +183,27 @@ int main (int argc, char **argv)
     else if (!strcmp (argv[x], "-nd"))
     {
       do_dither = 0;
+    }
+    else if (!strcmp (argv[x], "-s"))
+    {
+      if (!argv[x+1])
+        return -2;
+      factor = 1.0 / strtod (argv[x+1], NULL);
+      x++;
+    }
+    else if (!strcmp (argv[x], "-x"))
+    {
+      if (!argv[x+1])
+        return -2;
+      x_offset = strtod (argv[x+1], NULL);
+      x++;
+    }
+    else if (!strcmp (argv[x], "-y"))
+    {
+      if (!argv[x+1])
+        return -2;
+      y_offset = strtod (argv[x+1], NULL);
+      x++;
     }
     else if (!strcmp (argv[x], "-p"))
     {
@@ -223,6 +247,14 @@ int main (int argc, char **argv)
     path = images[image_no];
 
   image = stbi_load (path, &w, &h, NULL, 4);
+
+  if (factor < 0)
+  {
+    factor = 1.0 * w / desired_width;
+    if (factor < 1.0 * h / desired_height)
+      factor = 1.0 * h / desired_height;
+  }
+
   if (!image)
   {
     return -1;
@@ -240,39 +272,39 @@ int main (int argc, char **argv)
     }
     else if (palcount >= 216)
     {
-        RED_LEVELS  = 6;
+        RED_LEVELS   = 6;
         GREEN_LEVELS = 6;
-        BLUE_LEVELS = 6;
+        BLUE_LEVELS  = 6;
     }
     else if (palcount >= 180)
     {
-        RED_LEVELS  = 6;
+        RED_LEVELS   = 6;
         GREEN_LEVELS = 6;
-        BLUE_LEVELS = 5;
+        BLUE_LEVELS  = 5;
     }
     else if (palcount >= 150)
     {
-        RED_LEVELS  = 5;
+        RED_LEVELS   = 5;
         GREEN_LEVELS = 6;
-        BLUE_LEVELS = 5;
+        BLUE_LEVELS  = 5;
     }
     else if (palcount >= 125)
     {
-        RED_LEVELS  = 5;
+        RED_LEVELS   = 5;
         GREEN_LEVELS = 5;
-        BLUE_LEVELS = 5;
+        BLUE_LEVELS  = 5;
     }
     else if (palcount >= 100)
     {
-        RED_LEVELS  = 5;
+        RED_LEVELS   = 5;
         GREEN_LEVELS = 5;
-        BLUE_LEVELS = 4;
+        BLUE_LEVELS  = 4;
     }
     else if (palcount >= 80)
     {
-        RED_LEVELS  = 4;
+        RED_LEVELS   = 4;
         GREEN_LEVELS = 5;
-        BLUE_LEVELS = 4;
+        BLUE_LEVELS  = 4;
     }
     else if (palcount >= 64)
     {
@@ -369,14 +401,14 @@ int main (int argc, char **argv)
           {
             int binary = 0;
             int v;
-            int q = x * factor;
+            int q = x * factor + x_offset;
             int dithered[4];
             for (v = 0; v < 6; v++)
             {
               int got_coverage = 0;
               int z;
 
-              z = (y + v) * factor;
+              z = (y + v) * factor + y_offset;
               
               int offset = (int)((z) * w + q)*4;
 
