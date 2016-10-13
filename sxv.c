@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <termios.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -118,7 +119,7 @@ void init (int *dw, int *dh)
       return;
     }
     *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - 12;
+    *dh = size.ws_ypixel - 30;
 }
 
 void usage ()
@@ -134,6 +135,48 @@ void usage ()
   printf ("  -nd     no dithering\n");
   printf ("  -p <count>  use count number of colors\n");
   exit (0);
+}
+
+static int nc_is_raw = 0;
+static int atexit_registered = 0;
+static struct termios orig_attr; 
+
+static void _nc_noraw (void)
+{
+  if (nc_is_raw && tcsetattr (STDIN_FILENO, TCSAFLUSH, &orig_attr) != -1)
+    nc_is_raw = 0;
+}
+
+
+static void
+sixel_at_exit (void)
+{
+  _nc_noraw();
+}
+
+static int _nc_raw (void)
+{
+  struct termios raw;
+  if (!isatty (STDIN_FILENO))
+    return -1;
+  if (!atexit_registered)
+    {
+      atexit (sixel_at_exit);
+      atexit_registered = 1;
+    }
+  if (tcgetattr (STDIN_FILENO, &orig_attr) == -1)
+    return -1;
+  raw = orig_attr;  /* modify the original mode */
+  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+  raw.c_oflag &= ~(OPOST);
+  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_cc[VMIN] = 1; raw.c_cc[VTIME] = 0; /* 1 byte, no timer */
+  if (tcsetattr (STDIN_FILENO, TCSAFLUSH, &raw) < 0)
+    return -1;
+  nc_is_raw = 1;
+  tcdrain(STDIN_FILENO);
+  tcflush(STDIN_FILENO, 1);
+  return 0;
 }
 
 int main (int argc, char **argv)
@@ -154,12 +197,17 @@ int main (int argc, char **argv)
   int zero_origin = 0;
   const char *path = NULL;
 
+  int interactive = 0;
   float factor = -1.0;
 
   float x_offset = 0.0;
   float y_offset = 0.0;
 
   unsigned char *image = NULL;
+
+  /* we initialize the terminals dimensions as defaults, before the commandline
+     gets to override these dimensions further 
+   */
   init (&desired_width, &desired_height);
 
   for (x = 1; argv[x]; x++)
@@ -225,6 +273,10 @@ int main (int argc, char **argv)
         return -2;
       delay = strtod (argv[x+1], NULL);
       x++;
+    }
+    else if (!strcmp (argv[x], "-i"))
+    {
+      interactive = 1;
     }
     else if (!strcmp (argv[x], "-h"))
     {
@@ -367,6 +419,13 @@ int main (int argc, char **argv)
   int outw = desired_width;
   int outh = desired_height;
 
+  if (interactive)
+  {
+    zero_origin = 1;
+    _nc_raw();
+  }
+  
+interactive_again:
   {
     if (zero_origin)
       term_home ();
@@ -414,7 +473,7 @@ int main (int argc, char **argv)
 
               //if (z >= 0 && q >= 0 && z < h && q < w)
               if (z < h &&
-                  q < w)
+                  q < w && z >= 0 && q >= 0.0)
                 got_coverage = image[offset+3] > 127;
 
               if (got_coverage)
@@ -465,6 +524,42 @@ int main (int argc, char **argv)
         y += 6;
       }
       sixel_end ();
+
+      if (interactive)
+      {
+        usleep (0.1 * 1000.0 * 1000.0);
+
+        char buf[10];
+        int length = 0;
+        fflush (NULL);
+        if (read (STDIN_FILENO, &buf[0], 1) != -1)
+          {
+			if (buf[0] == 'q')
+              exit(0);
+            else if (buf[0] == 'j')
+              y_offset = y_offset + desired_height * 0.05;
+            else if (buf[0] == 'k')
+              y_offset = y_offset - desired_height * 0.05;
+            else if (buf[0] == 'h')
+              x_offset = x_offset + desired_width * 0.05;
+            else if (buf[0] == 'l')
+              x_offset = x_offset - desired_width * 0.05;
+            else if (buf[0] == '-')
+            {
+              x_offset /= 1.5;
+              y_offset /= 1.5;
+              factor *= 1.5;
+            }
+            else if (buf[0] == '+')
+            {
+              x_offset *= 1.5;
+              y_offset *= 1.5;
+              factor /= 1.5;
+            }
+          }
+
+        goto interactive_again;
+      }
     }
     free (image);
     printf ("\r");
