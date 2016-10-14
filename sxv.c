@@ -143,6 +143,7 @@ static struct termios orig_attr;
 
 static void _nc_noraw (void)
 {
+  orig_attr.c_lflag |= (ECHO | ICANON);
   if (nc_is_raw && tcsetattr (STDIN_FILENO, TCSAFLUSH, &orig_attr) != -1)
     nc_is_raw = 0;
 }
@@ -167,9 +168,7 @@ static int _nc_raw (void)
   if (tcgetattr (STDIN_FILENO, &orig_attr) == -1)
     return -1;
   raw = orig_attr;  /* modify the original mode */
-  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-  raw.c_oflag &= ~(OPOST);
-  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_lflag &= ~(ECHO | ICANON);
   raw.c_cc[VMIN] = 1; raw.c_cc[VTIME] = 0; /* 1 byte, no timer */
   if (tcsetattr (STDIN_FILENO, TCSAFLUSH, &raw) < 0)
     return -1;
@@ -296,6 +295,8 @@ int main (int argc, char **argv)
 
   for (image_no = 0; image_no < images_c; image_no++)
   {
+interactive_load_image:
+
     path = images[image_no];
 
   image = stbi_load (path, &w, &h, NULL, 4);
@@ -527,34 +528,57 @@ interactive_again:
 
       if (interactive)
       {
-        usleep (0.1 * 1000.0 * 1000.0);
+        //usleep (0.1 * 1000.0 * 1000.0);
 
         char buf[10];
         int length = 0;
+input_again:
         fflush (NULL);
-        if (read (STDIN_FILENO, &buf[0], 1) != -1)
+        while (read (STDIN_FILENO, &buf[0], 1) != -1)
           {
-			if (buf[0] == 'q')
-              exit(0);
-            else if (buf[0] == 'j')
-              y_offset = y_offset + desired_height * 0.05;
-            else if (buf[0] == 'k')
-              y_offset = y_offset - desired_height * 0.05;
-            else if (buf[0] == 'h')
-              x_offset = x_offset + desired_width * 0.05;
-            else if (buf[0] == 'l')
-              x_offset = x_offset - desired_width * 0.05;
-            else if (buf[0] == '-')
+            switch(buf[0])
             {
-              x_offset /= 1.5;
-              y_offset /= 1.5;
-              factor *= 1.5;
-            }
-            else if (buf[0] == '+')
-            {
-              x_offset *= 1.5;
-              y_offset *= 1.5;
-              factor /= 1.5;
+              case 'q': exit(0); break;
+              case 'j': y_offset = y_offset + desired_height * 0.05;
+                goto interactive_again;
+              case 'k': y_offset = y_offset - desired_height * 0.05;
+                goto interactive_again;
+              case 'h': x_offset = x_offset + desired_width * 0.05;
+                goto interactive_again;
+              case 'l': x_offset = x_offset - desired_width * 0.05;
+                goto interactive_again;
+              case '-':
+                x_offset /= 1.5;
+                y_offset /= 1.5;
+                factor *= 1.5;
+                goto interactive_again;
+              case '+':
+              case '=':
+                x_offset *= 1.5;
+                y_offset *= 1.5;
+                factor /= 1.5;
+                goto interactive_again;
+              case 'n':
+              case ' ':
+              if (image_no < images_c+1)
+              {
+                free (image);
+                image_no++;
+                factor = -1;
+                goto interactive_load_image;
+              }
+              break;
+              case 'p':
+              if (image_no > 0)
+              {
+                free (image);
+                image_no--;
+                factor = -1;
+                goto interactive_load_image;
+              }
+              break;
+              default:
+                goto input_again;
             }
           }
 
