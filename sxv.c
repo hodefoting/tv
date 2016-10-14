@@ -178,7 +178,6 @@ static int _nc_raw (void)
   return 0;
 }
 
-
 float factor   = -1.0;
 float x_offset = 0.0;
 float y_offset = 0.0;
@@ -187,6 +186,83 @@ float y_offset = 0.0;
   int grayscale = 0;
   float delay = 1.0;
   int verbosity = 0;
+  int desired_width =  1024;
+  int desired_height = 1024;
+  int image_no;
+  unsigned char *image = NULL;
+
+typedef enum {
+  RENONE=0,
+  RELOAD,
+  REDRAW,
+  REQUIT,
+  REEVENT,
+  REIDLE,
+} EvReaction;
+
+EvReaction handle_input (void)
+{
+   char buf[10];
+   struct timeval tv;
+   int retval;
+   fflush (NULL);
+   fd_set rfds;
+   FD_ZERO (&rfds);
+   FD_SET (STDIN_FILENO, &rfds);
+   tv.tv_sec = 0; tv.tv_usec = 100;
+   retval = select (1, &rfds, NULL, NULL, &tv);
+   if (retval ==1)
+   {
+   if (read (STDIN_FILENO, &buf[0], 1) == 1)
+     {
+       switch(buf[0])
+       {
+         case 'q': return REQUIT; 
+         case 'j': y_offset = y_offset + desired_height * 0.05;
+           return REDRAW;
+         case 'k': y_offset = y_offset - desired_height * 0.05;
+           return REDRAW;
+         case 'h': x_offset = x_offset + desired_width * 0.05;
+           return REDRAW;
+         case 'l': x_offset = x_offset - desired_width * 0.05;
+           return REDRAW;
+         case '-':
+           x_offset /= 1.5;
+           y_offset /= 1.5;
+           factor *= 1.5;
+           return REDRAW;
+         case '+':
+         case '=':
+           x_offset *= 1.5;
+           y_offset *= 1.5;
+           factor /= 1.5;
+           return REDRAW;
+         case 'n':
+         case ' ':
+         if (image_no < images_c+1)
+         {
+           free (image);
+           image_no++;
+           factor = -1;
+           return RELOAD;
+         }
+         break;
+         case 'p':
+         if (image_no > 0)
+         {
+           free (image);
+           image_no--;
+           factor = -1;
+           return RELOAD;
+         }
+         break;
+         default:
+           return REEVENT;
+       }
+     }
+  }
+  return REIDLE;
+}
 
 int main (int argc, char **argv)
 {
@@ -196,15 +272,11 @@ int main (int argc, char **argv)
   int green;
   int blue;
   int red_max, green_max, blue_max;
-  int desired_width =  1024;
-  int desired_height = 1024;
   int zero_origin = 0;
   const char *path = NULL;
 
   int interactive = 0;
 
-
-  unsigned char *image = NULL;
 
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
@@ -293,7 +365,6 @@ int main (int argc, char **argv)
   }
   images[images_c] = NULL;
 
-  int image_no;
 
   for (image_no = 0; image_no < images_c; image_no++)
   {
@@ -511,6 +582,9 @@ interactive_again:
                     binary |= (1<<v);
                 }
               }
+              else
+                binary |= (1<<v);
+
             }
             sixel_out (binary);
           }
@@ -525,67 +599,42 @@ interactive_again:
         }
         sixel_nl ();
         y += 6;
+#if 1
+      if (interactive)
+      {
+        ev_againb:
+        switch (handle_input())
+        {
+          case REQUIT:  sixel_end();printf ("."); exit(0); break;
+          case REDRAW:  sixel_end();goto interactive_again;
+          case RELOAD:  sixel_end();goto interactive_load_image;
+          case REEVENT: 
+          case REIDLE:
+            break;
+        }
+      }
+#endif
+
       }
       sixel_end ();
 
+
       if (interactive)
       {
-        //usleep (0.1 * 1000.0 * 1000.0);
-
-        char buf[10];
-        int length = 0;
-input_again:
-        fflush (NULL);
-        while (read (STDIN_FILENO, &buf[0], 1) != -1)
-          {
-            switch(buf[0])
-            {
-              case 'q': printf ("."); exit(0); break;
-              case 'j': y_offset = y_offset + desired_height * 0.05;
-                goto interactive_again;
-              case 'k': y_offset = y_offset - desired_height * 0.05;
-                goto interactive_again;
-              case 'h': x_offset = x_offset + desired_width * 0.05;
-                goto interactive_again;
-              case 'l': x_offset = x_offset - desired_width * 0.05;
-                goto interactive_again;
-              case '-':
-                x_offset /= 1.5;
-                y_offset /= 1.5;
-                factor *= 1.5;
-                goto interactive_again;
-              case '+':
-              case '=':
-                x_offset *= 1.5;
-                y_offset *= 1.5;
-                factor /= 1.5;
-                goto interactive_again;
-              case 'n':
-              case ' ':
-              if (image_no < images_c+1)
-              {
-                free (image);
-                image_no++;
-                factor = -1;
-                goto interactive_load_image;
-              }
-              break;
-              case 'p':
-              if (image_no > 0)
-              {
-                free (image);
-                image_no--;
-                factor = -1;
-                goto interactive_load_image;
-              }
-              break;
-              default:
-                goto input_again;
-            }
-          }
-
-        goto interactive_again;
+        ev_again:
+        switch (handle_input())
+        {
+          case REQUIT:  printf ("."); exit(0); break;
+          case REDRAW:  goto interactive_again;
+          case RELOAD:  goto interactive_load_image;
+          case REEVENT: goto ev_again;
+          case REIDLE:
+            usleep (0.01 * 1000.0 * 1000.0);
+            goto interactive_again;
+            break;
+        }
       }
+
     }
     free (image);
     printf ("\r");
