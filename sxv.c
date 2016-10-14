@@ -178,6 +178,16 @@ static int _nc_raw (void)
   return 0;
 }
 
+
+float factor   = -1.0;
+float x_offset = 0.0;
+float y_offset = 0.0;
+  int palcount = 16;
+  int do_dither = 1;
+  int grayscale = 0;
+  float delay = 1.0;
+  int verbosity = 0;
+
 int main (int argc, char **argv)
 {
   int x, y;
@@ -185,11 +195,6 @@ int main (int argc, char **argv)
   int red;
   int green;
   int blue;
-  int verbosity = 0;
-  int grayscale = 0;
-  int do_dither = 1;
-  int palcount = 16;
-  float delay = 1.0;
   int red_max, green_max, blue_max;
   int desired_width =  1024;
   int desired_height = 1024;
@@ -197,10 +202,7 @@ int main (int argc, char **argv)
   const char *path = NULL;
 
   int interactive = 0;
-  float factor = -1.0;
 
-  float x_offset = 0.0;
-  float y_offset = 0.0;
 
   unsigned char *image = NULL;
 
@@ -538,7 +540,7 @@ input_again:
           {
             switch(buf[0])
             {
-              case 'q': exit(0); break;
+              case 'q': printf ("."); exit(0); break;
               case 'j': y_offset = y_offset + desired_height * 0.05;
                 goto interactive_again;
               case 'k': y_offset = y_offset - desired_height * 0.05;
