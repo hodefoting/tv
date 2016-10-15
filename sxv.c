@@ -5,6 +5,7 @@
 #include <termios.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include <libgen.h>
 
 void sixel_out_char (int ch)
 {
@@ -132,6 +133,7 @@ void usage ()
   printf ("  -o      reset cursor to 0,0 after each drawing\n");
   printf ("  -v      be verbose\n");
   printf ("  -g      do a grayscale instead of color\n");
+  printf ("  -s      slideshow render\n");
   printf ("  -nd     no dithering\n");
   printf ("  -p <count>  use count number of colors\n");
   exit (0);
@@ -184,7 +186,11 @@ float y_offset = 0.0;
   int palcount = 16;
   int do_dither = 1;
   int grayscale = 0;
-  float delay = 1.0;
+  int slideshow = 0;
+  int loop = 0;
+ 
+  float delay = 4.0;
+  float time_remaining = 0.0;
   int verbosity = 0;
   int desired_width =  1024;
   int desired_height = 1024;
@@ -217,6 +223,18 @@ EvReaction cmd_up (void)
   return REDRAW;
 }
 
+EvReaction cmd_grayscale (void)
+{
+  grayscale = !grayscale;
+  return REDRAW;
+}
+
+EvReaction cmd_slideshow (void)
+{
+  slideshow = !slideshow;
+  return REDRAW;
+}
+
 EvReaction cmd_down (void)
 {
   y_offset = y_offset + (desired_height * JUMPLEN) * factor;
@@ -228,6 +246,15 @@ EvReaction cmd_right (void)
   x_offset = x_offset + (desired_height * JUMPLEN) * factor;
   return REDRAW;
 }
+
+EvReaction cmd_verbosity (void)
+{
+  verbosity ++;
+  if (verbosity > 4)
+    verbosity = 0;
+  return REDRAW;
+}
+
 
 EvReaction cmd_left (void)
 {
@@ -281,8 +308,6 @@ EvReaction cmd_zoom_1 (void)
   return REDRAW;
 }
 
-
-
 EvReaction cmd_quit (void)
 {
   return REQUIT;
@@ -294,6 +319,7 @@ EvReaction cmd_next (void)
   if (image_no >= images_c)
     image_no = images_c - 1;
   factor = -1;
+  time_remaining = delay;
   return RELOAD;
 }
 
@@ -303,6 +329,7 @@ EvReaction cmd_prev (void)
   if (image_no < 0)
     image_no = 0;
   factor = -1;
+  time_remaining = delay;
   return RELOAD;
 }
 
@@ -312,9 +339,10 @@ Action actions[] = {
   {"[C", cmd_right},
   {"[D", cmd_left},
   {" ",    cmd_next},
-  {"n",    cmd_next},
   {"",   cmd_prev},
-  {"p",    cmd_prev},
+  {"g",    cmd_grayscale},
+  {"s",    cmd_slideshow},
+  {"v",    cmd_verbosity},
   {"f",    cmd_zoom_fit},
   {"1",    cmd_zoom_1},
   {"+",    cmd_zoom_in},
@@ -323,7 +351,6 @@ Action actions[] = {
   {"q",    cmd_quit},
   {NULL, NULL}
 };
-
 
 EvReaction handle_input (void)
 {
@@ -401,10 +428,7 @@ int main (int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-s"))
     {
-      if (!argv[x+1])
-        return -2;
-      factor = 1.0 / strtod (argv[x+1], NULL);
-      x++;
+      slideshow = 1;
     }
     else if (!strcmp (argv[x], "-x"))
     {
@@ -425,6 +449,8 @@ int main (int argc, char **argv)
       if (!argv[x+1])
         return -2;
       palcount = atoi (argv[x+1]);
+      if (palcount < 2)
+        palcount = 2;
       x++;
     }
     else if (!strcmp (argv[x], "-w"))
@@ -459,6 +485,11 @@ int main (int argc, char **argv)
   }
   images[images_c] = NULL;
 
+  if (interactive)
+  {
+    zero_origin = 1;
+    _nc_raw();
+  }
 
   for (image_no = 0; image_no < images_c; image_no++)
   {
@@ -476,8 +507,13 @@ interactive_load_image:
 
   if (!image)
   {
+    sixel_outf ("\n\n");
     return -1;
   }
+
+  interactive_again:
+    init (&desired_width, &desired_height);
+
   int   RED_LEVELS  = 2;
   int   GREEN_LEVELS = 4;
   int   BLUE_LEVELS  = 2;
@@ -578,19 +614,10 @@ interactive_load_image:
     RED_LEVELS = GREEN_LEVELS = BLUE_LEVELS = green_max = palcount;
   }
 
-
   // image = rescale_image (image, &w, &h, desired_width, desired_height);
   int outw = desired_width;
   int outh = desired_height;
-
-  if (interactive)
-  {
-    zero_origin = 1;
-    _nc_raw();
-  }
   
-interactive_again:
-    init (&desired_width, &desired_height);
   {
     if (zero_origin)
       term_home ();
@@ -672,8 +699,8 @@ interactive_again:
                     binary |= (1<<v);
                 }
               }
-              else
-                binary |= (1<<v);
+              //else
+              //  binary |= (1<<v);
 
             }
             sixel_out (binary);
@@ -704,10 +731,29 @@ interactive_again:
       }
       sixel_end ();
 
-      if (verbosity)
-        sixel_outf ("%s %ix%i\r", path, image_w, image_h);
+      if (verbosity == 0)
+      {
+        sixel_outf ("                                    \r");
+      }
       else
-        sixel_outf ("\r");
+      {
+        if (verbosity > 2)
+          sixel_outf ("(%i/%i)", image_no+1, images_c);
+        sixel_outf (" %s", path);// basename(path));
+        if (verbosity > 1)
+          sixel_outf (" %ix%i", image_w, image_h);
+        if (verbosity > 3)
+        {
+          if (grayscale)
+            sixel_outf (" gray");
+          else
+            sixel_outf (" color");
+
+          if (slideshow)
+            sixel_outf (" slideshow");
+        }
+        sixel_outf ("       \r");
+      }
 
       if (interactive)
       {
@@ -719,7 +765,16 @@ interactive_again:
           case RELOAD:  goto interactive_load_image;
           case REEVENT: goto ev_again;
           case REIDLE:
-            usleep (0.15 * 1000.0 * 1000.0);
+            usleep (0.20 * 1000.0 * 1000.0);
+            if (slideshow)
+            {
+              time_remaining -= 0.2;
+              if (time_remaining < 0.0)
+              {
+                cmd_next ();
+                goto interactive_load_image;
+              }
+            }
             goto ev_again;
             break;
         }
@@ -730,9 +785,10 @@ interactive_again:
     if (image_no < images_c - 1)
     {
       usleep (delay * 1000.0 * 1000.0);
+      cmd_next ();
     }
   }
-  sixel_outf ("\n");
+  sixel_outf ("\n\n");
   return 0;
 }
 
