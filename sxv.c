@@ -417,6 +417,8 @@ int main (int argc, char **argv)
       if (!argv[x+1])
         return -2;
       palcount = atoi (argv[x+1]);
+      if (palcount < 2)
+        palcount = 2;
       x++;
     }
     else if (!strcmp (argv[x], "-w"))
