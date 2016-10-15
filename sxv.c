@@ -727,6 +727,7 @@ interactive_again:
       usleep (delay * 1000.0 * 1000.0);
     }
   }
+  sixel_outf ("\n");
   return 0;
 }
 
