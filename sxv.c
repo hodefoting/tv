@@ -200,9 +200,55 @@ typedef enum {
   REIDLE,
 } EvReaction;
 
+
+typedef struct Action {
+  const char *input;
+  void (*ActionFun) (void);
+} Action;
+
+void cmd_up (void)
+{
+}
+
+void cmd_down (void)
+{
+}
+
+void cmd_left (void)
+{
+}
+
+void cmd_right (void)
+{
+}
+
+void cmd_zoom_in (void)
+{
+}
+
+void cmd_zoom_out (void)
+{
+}
+
+void cmd_quit (void)
+{
+}
+
+Action actions[] = {
+  {"[A", cmd_up},
+  {"[B", cmd_down},
+  {"[C", cmd_right},
+  {"[D", cmd_left},
+  {"+",    cmd_zoom_in},
+  {"=",    cmd_zoom_in},
+  {"-",    cmd_zoom_out},
+  {"q",    cmd_quit},
+  {NULL, NULL}
+};
+
+
 EvReaction handle_input (void)
 {
-   char buf[10];
    struct timeval tv;
    int retval;
    fflush (NULL);
@@ -213,19 +259,40 @@ EvReaction handle_input (void)
    retval = select (1, &rfds, NULL, NULL, &tv);
    if (retval ==1)
    {
-   if (read (STDIN_FILENO, &buf[0], 1) == 1)
+     char buf[10];
+     int length = 0;
+   if ((length=read (STDIN_FILENO, &buf[0], 5)) >= 0)
      {
+       fprintf (stderr, "len: %i [0]=(%c)%i   \n", length, buf[0]>32?buf[0]:' ', buf[0]);
+       buf[length]='\0';
        switch(buf[0])
        {
+         case 27:
+            if (!strcmp (&buf[1], "[A")) /* UP */
+            {
+              y_offset = y_offset - (desired_height * 0.20) * factor;
+              return REDRAW;
+            }
+            else if (!strcmp (&buf[1], "[B")) /* DOWN */
+            {
+              y_offset = y_offset + (desired_height * 0.20) * factor;
+              return REDRAW;
+            }
+            else if (!strcmp (&buf[1], "[C")) /* RIGHT */
+            {
+              x_offset = x_offset + (desired_height * 0.20) * factor;
+              return REDRAW;
+            }
+            else if (!strcmp (&buf[1], "[D")) /* LEFT */
+            {
+              x_offset = x_offset - (desired_height* 0.20) * factor;
+              return REDRAW;
+            }
+            else
+              for (int i = 1; i < length; i++)
+              fprintf (stderr, " [%d]=%c   \n", i, buf[i]);
+            break;
          case 'q': return REQUIT; 
-         case 'j': y_offset = y_offset + desired_height * 0.05;
-           return REDRAW;
-         case 'k': y_offset = y_offset - desired_height * 0.05;
-           return REDRAW;
-         case 'h': x_offset = x_offset + desired_width * 0.05;
-           return REDRAW;
-         case 'l': x_offset = x_offset - desired_width * 0.05;
-           return REDRAW;
          case '-':
            x_offset /= 1.5;
            y_offset /= 1.5;
