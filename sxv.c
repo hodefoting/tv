@@ -190,6 +190,7 @@ float y_offset = 0.0;
   int desired_height = 1024;
   int image_no;
   unsigned char *image = NULL;
+  int image_w, image_h;
 
 typedef enum {
   RENONE=0,
@@ -203,35 +204,98 @@ typedef enum {
 
 typedef struct Action {
   const char *input;
-  void (*ActionFun) (void);
+  EvReaction (*handler) (void);
 } Action;
 
-void cmd_up (void)
+#define JUMPLEN 0.50
+
+EvReaction cmd_up (void)
 {
+  y_offset = y_offset - (desired_height * JUMPLEN) * factor;
+  if (y_offset < 0)
+    y_offset = 0;
+  return REDRAW;
 }
 
-void cmd_down (void)
+EvReaction cmd_down (void)
 {
+  y_offset = y_offset + (desired_height * JUMPLEN) * factor;
+  return REDRAW;
 }
 
-void cmd_left (void)
+EvReaction cmd_right (void)
 {
+  x_offset = x_offset + (desired_height * JUMPLEN) * factor;
+  return REDRAW;
 }
 
-void cmd_right (void)
+EvReaction cmd_left (void)
 {
+  x_offset = x_offset - (desired_height* JUMPLEN) * factor;
+  if (x_offset < 0)
+    x_offset = 0;
+  return REDRAW;
 }
 
-void cmd_zoom_in (void)
+EvReaction cmd_zoom_in (void)
 {
+  x_offset *= 1.5;
+  y_offset *= 1.5;
+  factor /= 1.5;
+  return REDRAW;
 }
 
-void cmd_zoom_out (void)
+EvReaction cmd_zoom_out (void)
 {
+  x_offset /= 1.5;
+  y_offset /= 1.5;
+  factor *= 1.5;
+  return REDRAW;
 }
 
-void cmd_quit (void)
+EvReaction cmd_zoom_fit (void)
 {
+  x_offset = 0;
+  y_offset = 0;
+
+  factor = 1.0 * image_w / desired_width;
+  if (factor < 1.0 * image_h / desired_height)
+    factor = 1.0 * image_h / desired_height;
+  return REDRAW;
+}
+
+EvReaction cmd_zoom_1 (void)
+{
+  x_offset = 0;
+  y_offset = 0;
+
+  factor = 1.0;
+  return REDRAW;
+}
+
+
+
+EvReaction cmd_quit (void)
+{
+  return REQUIT;
+}
+
+EvReaction cmd_next (void)
+{
+  image_no ++;
+  if (image_no >= images_c)
+    image_no = images_c - 1;
+  factor = -1;
+  return RELOAD;
+}
+
+EvReaction cmd_prev (void)
+{
+  image_no --;
+  if (image_no < 0)
+    image_no = 0;
+  factor = -1;
+  return RELOAD;
 }
 
 Action actions[] = {
@@ -239,6 +303,12 @@ Action actions[] = {
   {"[B", cmd_down},
   {"[C", cmd_right},
   {"[D", cmd_left},
+  {" ",    cmd_next},
+  {"n",    cmd_next},
+  {"",   cmd_prev},
+  {"p",    cmd_prev},
+  {"f",    cmd_zoom_fit},
+  {"1",    cmd_zoom_1},
   {"+",    cmd_zoom_in},
   {"=",    cmd_zoom_in},
   {"-",    cmd_zoom_out},
@@ -255,77 +325,27 @@ EvReaction handle_input (void)
    fd_set rfds;
    FD_ZERO (&rfds);
    FD_SET (STDIN_FILENO, &rfds);
-   tv.tv_sec = 0; tv.tv_usec = 100;
+   tv.tv_sec = 0; tv.tv_usec = 0;
    retval = select (1, &rfds, NULL, NULL, &tv);
-   if (retval ==1)
+   if (retval == 1)
    {
      char buf[10];
      int length = 0;
-   if ((length=read (STDIN_FILENO, &buf[0], 5)) >= 0)
+     if ((length=read (STDIN_FILENO, &buf[0], 5)) >= 0)
      {
-       fprintf (stderr, "len: %i [0]=(%c)%i   \n", length, buf[0]>32?buf[0]:' ', buf[0]);
        buf[length]='\0';
-       switch(buf[0])
+       for (int i = 0; actions[i].input; i++)
+         if (!strcmp (actions[i].input, buf))
+           return actions[i].handler();
+
+       if (0)
        {
-         case 27:
-            if (!strcmp (&buf[1], "[A")) /* UP */
-            {
-              y_offset = y_offset - (desired_height * 0.20) * factor;
-              return REDRAW;
-            }
-            else if (!strcmp (&buf[1], "[B")) /* DOWN */
-            {
-              y_offset = y_offset + (desired_height * 0.20) * factor;
-              return REDRAW;
-            }
-            else if (!strcmp (&buf[1], "[C")) /* RIGHT */
-            {
-              x_offset = x_offset + (desired_height * 0.20) * factor;
-              return REDRAW;
-            }
-            else if (!strcmp (&buf[1], "[D")) /* LEFT */
-            {
-              x_offset = x_offset - (desired_height* 0.20) * factor;
-              return REDRAW;
-            }
-            else
-              for (int i = 1; i < length; i++)
-              fprintf (stderr, " [%d]=%c   \n", i, buf[i]);
-            break;
-         case 'q': return REQUIT; 
-         case '-':
-           x_offset /= 1.5;
-           y_offset /= 1.5;
-           factor *= 1.5;
-           return REDRAW;
-         case '+':
-         case '=':
-           x_offset *= 1.5;
-           y_offset *= 1.5;
-           factor /= 1.5;
-           return REDRAW;
-         case 'n':
-         case ' ':
-         if (image_no < images_c+1)
-         {
-           free (image);
-           image_no++;
-           factor = -1;
-           return RELOAD;
-         }
-         break;
-         case 'p':
-         if (image_no > 0)
-         {
-           free (image);
-           image_no--;
-           factor = -1;
-           return RELOAD;
-         }
-         break;
-         default:
-           return REEVENT;
+       for (int i = 0; i < length; i++)
+         fprintf (stderr, " [%d]=%c (%i)   \n     \n", i, buf[i]>32?buf[i]:' ', buf[i]);
+       fprintf (stderr, "len: %i [0]=(%c)%i   \n", length, buf[0]>32?buf[0]:' ', buf[0]);
        }
+
+       return REEVENT;
      }
   }
   return REIDLE;
@@ -334,7 +354,6 @@ EvReaction handle_input (void)
 int main (int argc, char **argv)
 {
   int x, y;
-  int w, h;
   int red;
   int green;
   int blue;
@@ -437,15 +456,14 @@ int main (int argc, char **argv)
   {
 interactive_load_image:
 
+
     path = images[image_no];
 
-  image = stbi_load (path, &w, &h, NULL, 4);
+  image = stbi_load (path, &image_w, &image_h, NULL, 4);
 
   if (factor < 0)
   {
-    factor = 1.0 * w / desired_width;
-    if (factor < 1.0 * h / desired_height)
-      factor = 1.0 * h / desired_height;
+    cmd_zoom_fit ();
   }
 
   if (!image)
@@ -553,9 +571,6 @@ interactive_load_image:
   }
 
 
-  if (verbosity)
-   sixel_outf ("%s %ix%i\n", path, w, h);
-
   // image = rescale_image (image, &w, &h, desired_width, desired_height);
   int outw = desired_width;
   int outh = desired_height;
@@ -567,6 +582,7 @@ interactive_load_image:
   }
   
 interactive_again:
+    init (&desired_width, &desired_height);
   {
     if (zero_origin)
       term_home ();
@@ -610,11 +626,10 @@ interactive_again:
 
               z = (y + v) * factor + y_offset;
               
-              int offset = (int)((z) * w + q)*4;
+              int offset = (int)((z) * image_w + q)*4;
 
-              //if (z >= 0 && q >= 0 && z < h && q < w)
-              if (z < h &&
-                  q < w && z >= 0 && q >= 0.0)
+              if (z < image_h &&
+                  q < image_w && z >= 0 && q >= 0)
                 got_coverage = image[offset+3] > 127;
 
               if (got_coverage)
@@ -669,7 +684,6 @@ interactive_again:
 #if 1
       if (interactive)
       {
-        ev_againb:
         switch (handle_input())
         {
           case REQUIT:  sixel_end();printf ("."); exit(0); break;
@@ -685,6 +699,10 @@ interactive_again:
       }
       sixel_end ();
 
+      if (verbosity)
+        sixel_outf ("%s %ix%i\r", path, image_w, image_h);
+      else
+        sixel_outf ("\r");
 
       if (interactive)
       {
@@ -696,15 +714,14 @@ interactive_again:
           case RELOAD:  goto interactive_load_image;
           case REEVENT: goto ev_again;
           case REIDLE:
-            usleep (0.01 * 1000.0 * 1000.0);
-            goto interactive_again;
+            usleep (0.15 * 1000.0 * 1000.0);
+            goto ev_again;
             break;
         }
       }
 
     }
     free (image);
-    printf ("\r");
     if (image_no < images_c - 1)
     {
       usleep (delay * 1000.0 * 1000.0);
