@@ -239,17 +239,25 @@ EvReaction cmd_left (void)
 
 EvReaction cmd_zoom_in (void)
 {
-  x_offset *= 1.5;
-  y_offset *= 1.5;
+  x_offset += desired_width * 0.5 * factor ;
+  y_offset += desired_height * 0.5 * factor ;
+
   factor /= 1.5;
+
+  x_offset -= desired_width * 0.5 * factor ;
+  y_offset -= desired_height * 0.5 * factor ;
   return REDRAW;
 }
 
 EvReaction cmd_zoom_out (void)
 {
-  x_offset /= 1.5;
-  y_offset /= 1.5;
+  x_offset += desired_width * 0.5 * factor ;
+  y_offset += desired_height * 0.5 * factor ;
+
   factor *= 1.5;
+
+  x_offset -= desired_width * 0.5 * factor ;
+  y_offset -= desired_height * 0.5 * factor ;
   return REDRAW;
 }
 
@@ -417,8 +425,6 @@ int main (int argc, char **argv)
       if (!argv[x+1])
         return -2;
       palcount = atoi (argv[x+1]);
-      if (palcount < 2)
-        palcount = 2;
       x++;
     }
     else if (!strcmp (argv[x], "-w"))
@@ -683,21 +689,18 @@ interactive_again:
         }
         sixel_nl ();
         y += 6;
-#if 1
-      if (interactive)
-      {
-        switch (handle_input())
+        if (interactive)
         {
-          case REQUIT:  sixel_end();printf ("."); exit(0); break;
-          case REDRAW:  sixel_end();goto interactive_again;
-          case RELOAD:  sixel_end();goto interactive_load_image;
-          case REEVENT: 
-          case REIDLE:
+          switch (handle_input())
+          {
+            case REQUIT:  sixel_end();printf ("."); exit(0); break;
+            case REDRAW:  sixel_end();goto interactive_again;
+            case RELOAD:  sixel_end();goto interactive_load_image;
+            case REEVENT: 
+            case REIDLE:
             break;
+          }
         }
-      }
-#endif
-
       }
       sixel_end ();
 
