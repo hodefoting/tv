@@ -1,3 +1,6 @@
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -6,6 +9,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include <libgen.h>
+#include <sys/time.h>
 
 void sixel_out_char (int ch)
 {
@@ -59,7 +63,7 @@ void sixel_flush (void)
   current = -1;
   count = 0;
 }
-int sixel_out (int sixel)
+void sixel_out (int sixel)
 {
   if (current == sixel)
     count ++;
@@ -73,13 +77,13 @@ int sixel_out (int sixel)
 }
 #endif
 
-int sixel_nl ()
+void sixel_nl ()
 {
   sixel_flush ();
   sixel_out_char ('-');
 }
 
-int sixel_cr ()
+void sixel_cr ()
 {
   sixel_flush ();
   sixel_out_char ('$');
@@ -640,7 +644,7 @@ interactive_load_image:
       }
 
       /* do resampling as part of view, not as a separate step */
-      for (y = 0; y < outh; y)
+      for (y = 0; y < outh; )
       {
         palno=1;
         for (red   = 0; red   < red_max; red++)
@@ -725,6 +729,7 @@ interactive_load_image:
             case RELOAD:  sixel_end();goto interactive_load_image;
             case REEVENT: 
             case REIDLE:
+            case RENONE:
             break;
           }
         }
@@ -764,6 +769,7 @@ interactive_load_image:
           case REDRAW:  goto interactive_again;
           case RELOAD:  goto interactive_load_image;
           case REEVENT: goto ev_again;
+          case RENONE:
           case REIDLE:
             usleep (0.20 * 1000.0 * 1000.0);
             if (slideshow)
@@ -791,7 +797,6 @@ interactive_load_image:
   sixel_outf ("\n\n");
   return 0;
 }
-
 
 /* not used anymore - but useful to make thumbnails and similar,. */
 void *
@@ -827,4 +832,3 @@ rescale_image (char *image, int *pw, int *ph, int max_w, int max_h)
   free (image);
   return new_image;
 }
-

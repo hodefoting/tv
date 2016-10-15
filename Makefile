@@ -1,4 +1,4 @@
-CFLAGS=-O2
+CFLAGS=-O2 -std=c99 
 
 sxv: *.c
 	gcc $(CFLAGS) -o $@ sxv.c -lm
