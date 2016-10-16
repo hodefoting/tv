@@ -584,7 +584,6 @@ int main (int argc, char **argv)
        usage ();
     }
 
-
   if (strstr (images[0], ".pdf") ||
       strstr (images[0], ".PDF"))
     {
@@ -751,18 +750,16 @@ interactive_load_image:
 
               if (got_coverage)
               {
+                dithered[0] = image[offset + 0];
+                dithered[1] = image[offset + 1];
+                dithered[2] = image[offset + 2];
                 if (do_dither)
                 {
-                  dithered[0] = image[offset + 0] + mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
-                  dithered[1] = image[offset + 1] + mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
-                  dithered[2] = image[offset + 2] + mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
+                  dithered[0] += mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
+                  dithered[1] += mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
+                  dithered[2] += mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
                 }
-                else
-                {
-                  dithered[0] = image[offset + 0];
-                  dithered[1] = image[offset + 1];
-                  dithered[2] = image[offset + 2];
-                }
+
                 if (grayscale)
                 {
                   dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
@@ -781,8 +778,8 @@ interactive_load_image:
                     binary |= (1<<v);
                 }
               }
-              //else
-              //  binary |= (1<<v);
+              else
+                binary |= (1<<v);
 
             }
             sixel_out (binary);
