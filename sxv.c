@@ -268,12 +268,14 @@ EvReaction cmd_left (void)
   return REDRAW;
 }
 
+#define ZOOM_FACTOR 1.33333
+
 EvReaction cmd_zoom_in (void)
 {
   x_offset += desired_width * 0.5 * factor ;
   y_offset += desired_height * 0.5 * factor ;
 
-  factor /= 1.5;
+  factor /= ZOOM_FACTOR;
 
   x_offset -= desired_width * 0.5 * factor ;
   y_offset -= desired_height * 0.5 * factor ;
@@ -285,7 +287,7 @@ EvReaction cmd_zoom_out (void)
   x_offset += desired_width * 0.5 * factor ;
   y_offset += desired_height * 0.5 * factor ;
 
-  factor *= 1.5;
+  factor *= ZOOM_FACTOR;
 
   x_offset -= desired_width * 0.5 * factor ;
   y_offset -= desired_height * 0.5 * factor ;
