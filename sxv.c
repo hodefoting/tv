@@ -203,7 +203,9 @@ int image_no;
 unsigned char *image = NULL;
 int image_w, image_h;
 const char *path = NULL;
-int pdf = 0;
+int         pdf = 0;
+int zero_origin = 0;
+int interactive = 0;
 
 typedef enum {
   RENONE=0,
@@ -349,9 +351,10 @@ EvReaction cmd_pal_up (void)
 EvReaction cmd_pal_down (void)
 {
   palcount --;
+  if (palcount < 2)
+    palcount = 2;
   return REDRAW;
 }
-
 
 EvReaction cmd_quit (void)
 {
@@ -476,22 +479,9 @@ void print_status (void)
   }
 }
 
-int main (int argc, char **argv)
+void parse_args (int argc, char **argv)
 {
-  int x, y;
-  int red;
-  int green;
-  int blue;
-  int red_max, green_max, blue_max;
-  int zero_origin = 0;
-
-  int interactive = 0;
-
-  /* we initialize the terminals dimensions as defaults, before the commandline
-     gets to override these dimensions further 
-   */
-  init (&desired_width, &desired_height);
-
+  int x;
   for (x = 1; argv[x]; x++)
   {
     if (!strcmp (argv[x], "--help"))
@@ -521,21 +511,21 @@ int main (int argc, char **argv)
     else if (!strcmp (argv[x], "-x"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-1);
       x_offset = strtod (argv[x+1], NULL);
       x++;
     }
     else if (!strcmp (argv[x], "-y"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-1);
       y_offset = strtod (argv[x+1], NULL);
       x++;
     }
     else if (!strcmp (argv[x], "-p"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-1);
       palcount = atoi (argv[x+1]);
       if (palcount < 2)
         palcount = 2;
@@ -544,14 +534,14 @@ int main (int argc, char **argv)
     else if (!strcmp (argv[x], "-w"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-2);
       desired_width = atoi (argv[x+1]);
       x++;
     }
     else if (!strcmp (argv[x], "-d"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-2);
       delay = strtod (argv[x+1], NULL);
       x++;
     }
@@ -562,7 +552,7 @@ int main (int argc, char **argv)
     else if (!strcmp (argv[x], "-h"))
     {
       if (!argv[x+1])
-        return -2;
+        exit (-2);
       desired_height = atoi (argv[x+1]);
       x++;
     }
@@ -571,6 +561,22 @@ int main (int argc, char **argv)
       images[images_c++] = argv[x];
     }
   }
+}
+
+int main (int argc, char **argv)
+{
+  int x, y;
+  int red;
+  int green;
+  int blue;
+  int red_max, green_max, blue_max;
+
+  /* we initialize the terminals dimensions as defaults, before the commandline
+     gets to override these dimensions further 
+   */
+  init (&desired_width, &desired_height);
+
+  parse_args (argc, argv);
   images[images_c] = NULL;
 
   if (images_c <= 0)
