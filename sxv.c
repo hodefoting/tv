@@ -110,6 +110,7 @@ static float mask_a (int x, int y, int c)
 }
 
 char *images[4096]={0,};
+const char *pdf_path = NULL;
 int images_c = 0;
 
 #include <sys/ioctl.h>
@@ -129,15 +130,16 @@ void init (int *dw, int *dh)
 
 void usage ()
 {
-  printf ("usage: xv [--help] [-w <width>] [-h <height>] [-o] [-v] [-g] [-p <palcount>] [-nd] image1 image2 image3 image4\n");
+  printf ("usage: sxv [--help] [-w <width>] [-h <height>] [-o] [-v] [-g] [-p <palcount>] [-nd] <image1|pdf> [image2 [image3 [image4 ...]]]\n");
   printf ("options:\n");
   printf ("  --help  print this help\n");
   printf ("  -w <int>width in pixels (default terminal width)\n");
   printf ("  -h <int>height in pixels (default terminal iheight)\n");
   printf ("  -o      reset cursor to 0,0 after each drawing\n");
   printf ("  -v      be verbose\n");
+  printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
+  printf ("  -s      slideshow mode\n");
   printf ("  -g      do a grayscale instead of color\n");
-  printf ("  -s      slideshow render\n");
   printf ("  -nd     no dithering\n");
   printf ("  -p <count>  use count number of colors\n");
   exit (0);
@@ -187,20 +189,21 @@ static int _nc_raw (void)
 float factor   = -1.0;
 float x_offset = 0.0;
 float y_offset = 0.0;
-  int palcount = 16;
-  int do_dither = 1;
-  int grayscale = 0;
-  int slideshow = 0;
-  int loop = 0;
- 
-  float delay = 4.0;
-  float time_remaining = 0.0;
-  int verbosity = 0;
-  int desired_width =  1024;
-  int desired_height = 1024;
-  int image_no;
-  unsigned char *image = NULL;
-  int image_w, image_h;
+int palcount = 16;
+int do_dither = 1;
+int grayscale = 0;
+int slideshow = 0;
+int loop = 0;
+float delay = 4.0;
+float time_remaining = 0.0;
+int verbosity = 0;
+int desired_width =  1024;
+int desired_height = 1024;
+int image_no;
+unsigned char *image = NULL;
+int image_w, image_h;
+const char *path = NULL;
+int pdf = 0;
 
 typedef enum {
   RENONE=0,
@@ -230,6 +233,12 @@ EvReaction cmd_up (void)
 EvReaction cmd_grayscale (void)
 {
   grayscale = !grayscale;
+  return REDRAW;
+}
+
+EvReaction cmd_do_dither (void)
+{
+  do_dither = !do_dither;
   return REDRAW;
 }
 
@@ -272,13 +281,21 @@ EvReaction cmd_left (void)
 
 EvReaction cmd_zoom_in (void)
 {
-  x_offset += desired_width * 0.5 * factor ;
-  y_offset += desired_height * 0.5 * factor ;
+  if (x_offset == 0.0 && y_offset == 0.0)
+  {
+    factor /= ZOOM_FACTOR;
+  }
+  else
+  {
+    x_offset += desired_width * 0.5 * factor ;
+    y_offset += desired_height * 0.5 * factor ;
 
-  factor /= ZOOM_FACTOR;
+    factor /= ZOOM_FACTOR;
 
-  x_offset -= desired_width * 0.5 * factor ;
-  y_offset -= desired_height * 0.5 * factor ;
+    x_offset -= desired_width * 0.5 * factor ;
+    y_offset -= desired_height * 0.5 * factor ;
+  }
+
   return REDRAW;
 }
 
@@ -294,12 +311,21 @@ EvReaction cmd_zoom_out (void)
   return REDRAW;
 }
 
-EvReaction cmd_zoom_fit (void)
+EvReaction cmd_zoom_width (void)
 {
   x_offset = 0;
   y_offset = 0;
 
   factor = 1.0 * image_w / desired_width;
+  return REDRAW;
+}
+
+EvReaction cmd_zoom_fit (void)
+{
+  x_offset = 0;
+  y_offset = 0;
+
+  cmd_zoom_width ();
   if (factor < 1.0 * image_h / desired_height)
     factor = 1.0 * image_h / desired_height;
   return REDRAW;
@@ -313,6 +339,19 @@ EvReaction cmd_zoom_1 (void)
   factor = 1.0;
   return REDRAW;
 }
+
+EvReaction cmd_pal_up (void)
+{
+  palcount ++;
+  return REDRAW;
+}
+
+EvReaction cmd_pal_down (void)
+{
+  palcount --;
+  return REDRAW;
+}
+
 
 EvReaction cmd_quit (void)
 {
@@ -340,21 +379,27 @@ EvReaction cmd_prev (void)
 }
 
 Action actions[] = {
-  {"[A", cmd_up},
-  {"[B", cmd_down},
-  {"[C", cmd_right},
-  {"[D", cmd_left},
-  {" ",    cmd_next},
-  {"",   cmd_prev},
-  {"g",    cmd_grayscale},
-  {"s",    cmd_slideshow},
-  {"v",    cmd_verbosity},
-  {"f",    cmd_zoom_fit},
-  {"1",    cmd_zoom_1},
-  {"+",    cmd_zoom_in},
-  {"=",    cmd_zoom_in},
-  {"-",    cmd_zoom_out},
-  {"q",    cmd_quit},
+  {"[A",  cmd_up},
+  {"[B",  cmd_down},
+  {"[C",  cmd_right},
+  {"[D",  cmd_left},
+  {" ",     cmd_next},
+  {"",    cmd_prev},
+  {"[5~", cmd_prev},
+  {"[6~", cmd_next},
+  {"d",     cmd_do_dither},
+  {"g",     cmd_grayscale},
+  {"s",     cmd_slideshow},
+  {"v",     cmd_verbosity},
+  {"f",     cmd_zoom_fit},
+  {"w",     cmd_zoom_width},
+  {"1",     cmd_zoom_1},
+  {"+",     cmd_zoom_in},
+  {"=",     cmd_zoom_in},
+  {"-",     cmd_zoom_out},
+  {"p",     cmd_pal_up},
+  {"P",     cmd_pal_down},
+  {"q",     cmd_quit},
   {NULL, NULL}
 };
 
@@ -366,7 +411,7 @@ EvReaction handle_input (void)
    fd_set rfds;
    FD_ZERO (&rfds);
    FD_SET (STDIN_FILENO, &rfds);
-   tv.tv_sec = 0; tv.tv_usec = 0;
+   tv.tv_sec = 0; tv.tv_usec = 1;
    retval = select (1, &rfds, NULL, NULL, &tv);
    if (retval == 1)
    {
@@ -392,6 +437,45 @@ EvReaction handle_input (void)
   return REIDLE;
 }
 
+const char *prepare_pdf_page (const char *path, int page_no)
+{
+  char command[4096];
+  sprintf (command, "gs -sDEVICE=pnggray -sOutputFile=/tmp/sxv-pdf.png -dFirstPage=%d -dLastPage=%d -dBATCH -dNOPAUSE -r200 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 %s 2>&1 > /dev/null", page_no, page_no, path);
+  system (command);
+  return "/tmp/sxv-pdf.png";
+}
+
+void print_status (void)
+{
+  if (verbosity == 0)
+  {
+    sixel_outf ("                                    \r");
+  }
+  else
+  {
+    sixel_outf ("%i/%i", image_no+1, images_c);
+    if (pdf)
+      sixel_outf (" %s", pdf_path);// basename(path));
+    else
+      sixel_outf (" %s", path);// basename(path));
+    sixel_outf (" %ix%i", image_w, image_h);
+
+    if (verbosity > 1)
+    {
+      if (grayscale)
+        sixel_outf (" -g");
+      if (slideshow)
+        sixel_outf (" -s");
+      if (!do_dither)
+        sixel_outf (" -nd");
+
+      sixel_outf (" -p %d", palcount);
+
+    }
+    sixel_outf ("       \r");
+  }
+}
+
 int main (int argc, char **argv)
 {
   int x, y;
@@ -400,10 +484,8 @@ int main (int argc, char **argv)
   int blue;
   int red_max, green_max, blue_max;
   int zero_origin = 0;
-  const char *path = NULL;
 
   int interactive = 0;
-
 
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
@@ -491,6 +573,37 @@ int main (int argc, char **argv)
   }
   images[images_c] = NULL;
 
+  if (images_c <= 0)
+    {
+       usage ();
+    }
+
+
+  if (strstr (images[0], ".pdf") ||
+      strstr (images[0], ".PDF"))
+    {
+      FILE *fp;
+      char command[4096];
+      command[4095]=0;
+      pdf_path = images[0];
+      pdf = 1;
+      interactive = 1;
+      snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
+
+      fp = popen(command, "r");
+      if (fp == NULL)
+      {
+        fprintf (stderr, "failed to run ghostscript to count pages in PDF %s, aborting\n", pdf_path);
+        exit (-1);
+      }
+      fgets(command, sizeof(command), fp);
+      pdf = images_c = atoi (command);
+
+      if (verbosity > 2)
+        fprintf (stderr, "%i pages in pdf %s\n", images_c, pdf_path);
+      pclose (fp);
+    }
+
   if (interactive)
   {
     zero_origin = 1;
@@ -501,14 +614,19 @@ int main (int argc, char **argv)
   {
 interactive_load_image:
 
-
-    path = images[image_no];
+    if (pdf)
+      path = prepare_pdf_page (pdf_path, image_no+1);
+    else
+      path = images[image_no];
 
   image = stbi_load (path, &image_w, &image_h, NULL, 4);
 
   if (factor < 0)
   {
-    cmd_zoom_fit ();
+    if (pdf)
+      cmd_zoom_width ();
+    else
+      cmd_zoom_fit ();
   }
 
   if (!image)
@@ -520,88 +638,50 @@ interactive_load_image:
   interactive_again:
     init (&desired_width, &desired_height);
 
-  int   RED_LEVELS  = 2;
+  int   RED_LEVELS   = 2;
   int   GREEN_LEVELS = 4;
   int   BLUE_LEVELS  = 2;
 
   {
     if (palcount >= 252)
     {
-        RED_LEVELS   = 6;
-        GREEN_LEVELS = 7;
-        BLUE_LEVELS  = 6;
+      RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6;
     }
     else if (palcount >= 216)
     {
-        RED_LEVELS   = 6;
-        GREEN_LEVELS = 6;
-        BLUE_LEVELS  = 6;
-    }
-    else if (palcount >= 180)
-    {
-        RED_LEVELS   = 6;
-        GREEN_LEVELS = 6;
-        BLUE_LEVELS  = 5;
+      RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6;
     }
     else if (palcount >= 150)
     {
-        RED_LEVELS   = 5;
-        GREEN_LEVELS = 6;
-        BLUE_LEVELS  = 5;
+      RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5;
     }
     else if (palcount >= 125)
     {
-        RED_LEVELS   = 5;
-        GREEN_LEVELS = 5;
-        BLUE_LEVELS  = 5;
-    }
-    else if (palcount >= 100)
-    {
-        RED_LEVELS   = 5;
-        GREEN_LEVELS = 5;
-        BLUE_LEVELS  = 4;
-    }
-    else if (palcount >= 80)
-    {
-        RED_LEVELS   = 4;
-        GREEN_LEVELS = 5;
-        BLUE_LEVELS  = 4;
+      RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5;
     }
     else if (palcount >= 64)
     {
-        RED_LEVELS  = 4;
-        GREEN_LEVELS = 4;
-        BLUE_LEVELS = 4;
-    }
-    else if (palcount >= 48)
-    {
-        RED_LEVELS  = 4;
-        GREEN_LEVELS = 4;
-        BLUE_LEVELS = 3;
-    }
-    else if (palcount >= 36)
-    {
-        RED_LEVELS  = 3;
-        GREEN_LEVELS = 4;
-        BLUE_LEVELS = 3;
+      RED_LEVELS = 4; GREEN_LEVELS = 4; BLUE_LEVELS = 4;
     }
     else if (palcount >= 32)
     {
-        RED_LEVELS  = 3;
-        GREEN_LEVELS = 3;
-        BLUE_LEVELS = 3;
+      RED_LEVELS = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3;
     }
     else if (palcount >= 24)
     {
-        RED_LEVELS  = 3;
-        GREEN_LEVELS = 4;
-        BLUE_LEVELS = 2;
+      RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2;
     }
-    else if (palcount >= 16)
+    else if (palcount >= 16) /* the most common case */
     {
-        RED_LEVELS   = 2;
-        GREEN_LEVELS = 4;
-        BLUE_LEVELS  = 2;
+      RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2;
+    }
+    else if (palcount >= 12) /* the most common case */
+    {
+      RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2;
+    }
+    else if (palcount >= 8) /* the most common case */
+    {
+      RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2;
     }
     else 
     {
@@ -625,6 +705,8 @@ interactive_load_image:
   int outh = desired_height;
   
   {
+    print_status ();
+
     if (zero_origin)
       term_home ();
     
@@ -738,29 +820,7 @@ interactive_load_image:
       }
       sixel_end ();
 
-      if (verbosity == 0)
-      {
-        sixel_outf ("                                    \r");
-      }
-      else
-      {
-        if (verbosity > 2)
-          sixel_outf ("(%i/%i)", image_no+1, images_c);
-        sixel_outf (" %s", path);// basename(path));
-        if (verbosity > 1)
-          sixel_outf (" %ix%i", image_w, image_h);
-        if (verbosity > 3)
-        {
-          if (grayscale)
-            sixel_outf (" gray");
-          else
-            sixel_outf (" color");
-
-          if (slideshow)
-            sixel_outf (" slideshow");
-        }
-        sixel_outf ("       \r");
-      }
+      sixel_outf ("\r");
 
       if (interactive)
       {
