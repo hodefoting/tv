@@ -733,26 +733,44 @@ interactive_load_image:
           {
             int binary = 0;
             int v;
-            int q = x * factor + x_offset;
+            int q0 = x * factor + x_offset;
+            int q1 = (x+1) * factor + x_offset;
             int dithered[4];
             for (v = 0; v < 6; v++)
             {
               int got_coverage = 0;
-              int z;
+              int z0;
+              int z1;
 
-              z = (y + v) * factor + y_offset;
+              z0 = (y + v) * factor + y_offset;
+              z1 = (y + v + 1) * factor + y_offset;
               
-              int offset = (int)((z) * image_w + q)*4;
+              int offset = (int)((z0) * image_w + q0)*4;
 
-              if (z < image_h &&
-                  q < image_w && z >= 0 && q >= 0)
+              if (z1 < image_h &&
+                  q1 < image_w && z0 >= 0 && q0 >= 0)
                 got_coverage = image[offset+3] > 127;
 
               if (got_coverage)
               {
-                dithered[0] = image[offset + 0];
-                dithered[1] = image[offset + 1];
-                dithered[2] = image[offset + 2];
+                int z, q;
+                int c = 0;
+                int offset2;
+                dithered[0] = 0;
+                dithered[1] = 0;
+                dithered[2] = 0;
+                for (q = q0; q<=q1; q++)
+                  for (z = z0; z<=z1; z++)
+                  {
+                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                    dithered[0] += image[offset2 + 0];
+                    dithered[1] += image[offset2 + 1];
+                    dithered[2] += image[offset2 + 2];
+                    c++;
+                  }
+                dithered[0] /= c;
+                dithered[1] /= c;
+                dithered[2] /= c;
                 if (do_dither)
                 {
                   dithered[0] += mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
