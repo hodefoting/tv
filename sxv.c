@@ -643,46 +643,34 @@ interactive_load_image:
   int   BLUE_LEVELS  = 2;
 
   {
-    if (palcount >= 252)
-    {
-      RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6;
-    }
+    if (palcount      >= 1000)
+    { RED_LEVELS = 10; GREEN_LEVELS = 10; BLUE_LEVELS  = 10; }
+    else if (palcount >= 729)
+    { RED_LEVELS = 9; GREEN_LEVELS = 9; BLUE_LEVELS  = 9; }
+    else if (palcount >= 512)
+    { RED_LEVELS = 8; GREEN_LEVELS = 8; BLUE_LEVELS  = 8; }
+    else if (palcount >= 343)
+    { RED_LEVELS = 7; GREEN_LEVELS = 7; BLUE_LEVELS  = 7; }
+    else if (palcount >= 252)
+    { RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6; }
     else if (palcount >= 216)
-    {
-      RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6;
-    }
+    { RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6; }
     else if (palcount >= 150)
-    {
-      RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5;
-    }
+    { RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5; }
     else if (palcount >= 125)
-    {
-      RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5;
-    }
+    { RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5; }
     else if (palcount >= 64)
-    {
-      RED_LEVELS = 4; GREEN_LEVELS = 4; BLUE_LEVELS = 4;
-    }
+    { RED_LEVELS = 4;  GREEN_LEVELS = 4; BLUE_LEVELS = 4; }
     else if (palcount >= 32)
-    {
-      RED_LEVELS = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3;
-    }
+    { RED_LEVELS  = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3; }
     else if (palcount >= 24)
-    {
-      RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2;
-    }
+    { RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2; }
     else if (palcount >= 16) /* the most common case */
-    {
-      RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2;
-    }
-    else if (palcount >= 12) /* the most common case */
-    {
-      RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2;
-    }
-    else if (palcount >= 8) /* the most common case */
-    {
-      RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2;
-    }
+    { RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2; }
+    else if (palcount >= 12) 
+    { RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2; }
+    else if (palcount >= 8) 
+    { RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2; }
     else 
     {
       grayscale = 1;
