@@ -147,7 +147,8 @@ void sixel_start ()
 
 void term_home ()
 {
-  sixel_out_str ( "[1;1H");
+  //sixel_out_str ( "c");
+  sixel_out_str ( "[1H");
 }
 
 static float mask_a (int x, int y, int c)
@@ -161,6 +162,9 @@ int images_c = 0;
 
 #include <sys/ioctl.h>
 
+int status_y = 25;
+int status_x = 1;
+
 void init (int *dw, int *dh)
 {
     struct winsize size = {0,0,0,0};
@@ -170,8 +174,9 @@ void init (int *dw, int *dh)
       *dh = 300;
       return;
     }
+    status_y = size.ws_row+1;
     *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - 30;
+    *dh = size.ws_ypixel - ceil((1.0*size.ws_ypixel)/status_y);
 }
 
 void usage ()
@@ -233,8 +238,8 @@ static int _nc_raw (void)
 }
 
 float factor   = -1.0;
-float x_offset = 0.0;
-float y_offset = 0.0;
+float x_offset = -10.0;
+float y_offset = -10.0;
 int palcount = 16;
 int do_dither = 1;
 int grayscale = 0;
@@ -496,13 +501,21 @@ const char *prepare_pdf_page (const char *path, int page_no)
 
 void print_status (void)
 {
+  sixel_outf ( "[%d;%dH", status_y, status_x);
   if (verbosity == 0)
   {
     sixel_outf ("                                    \r");
   }
   else
   {
+    if (verbosity > 1)
+    {
+      sixel_outf ("%.0f%% ",100.0/factor);
+    }
+
     sixel_outf ("%i/%i", image_no+1, images_c);
+
+
     if (pdf)
       sixel_outf (" %s", pdf_path);// basename(path));
     else
@@ -827,7 +840,7 @@ interactive_load_image:
 
     if (zero_origin)
       term_home ();
-    
+
     sixel_start ();
       int palno = 1;
       for (red   = 0; red   < red_max; red++)
@@ -853,15 +866,18 @@ interactive_load_image:
         for (blue  = 0; blue  < blue_max; blue++)
         for (green = 0; green < green_max; green++)
         {
-          sixel_outf ( "#%d", palno++);
+          sixel_outf ( "#%d", palno);
           for (x = 0; x < outw; x ++)
           {
-            int binary = 0;
+            int sixel = 0;
             int v;
             int q0 = x * factor + x_offset;
             int q1 = (x+1) * factor + x_offset;
             int dithered[4];
-            for (v = 0; v < 6; v++)
+            for (v = 0; v < 6; v++) // XXX: the code redithers,
+                                    //      instead of dithering to
+                                    //      a tempbuf and then blitting that
+                                    //      buf to sixel
             {
               int got_coverage = 0;
               int z0;
@@ -902,15 +918,18 @@ interactive_load_image:
                   dithered[1] += mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
                   dithered[2] += mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
                 }
+                else
+                {
+                  dithered[0] += 0.5 * 255/(RED_LEVELS-1);
+                  dithered[1] += 0.5 * 255/(GREEN_LEVELS-1);
+                  dithered[2] += 0.5 * 255/(BLUE_LEVELS-1);
+                }
 
                 if (grayscale)
                 {
                   dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green)
-                      )
-                    binary |= (1<<v);
+                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 >= green))
+                    sixel |= (1<<v);
                 }
                 else
                 {
@@ -918,23 +937,24 @@ interactive_load_image:
                       (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
                       (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
                       )
-                    binary |= (1<<v);
+                   sixel |= (1<<v);
                 }
               }
               else
-                binary |= (1<<v);
+                if (red == green && green == blue && blue == 0) sixel |= (1<<v);
 
             }
-            sixel_out (binary);
+            sixel_out (sixel);
           }
 #if 0
-          if (count == outw)
+        if (count == outw)
           {
             count = 0;
             current = -1;
           }
 #endif
           sixel_cr ();
+          palno++;
         }
         sixel_nl ();
         y += 6;
@@ -958,6 +978,8 @@ interactive_load_image:
 
       if (interactive)
       {
+        print_status ();
+
         ev_again:
         switch (handle_input())
         {
