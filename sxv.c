@@ -6,8 +6,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <termios.h>
+
+#if 0
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#endif
 #include <libgen.h>
 #include <sys/time.h>
 
@@ -563,10 +567,70 @@ void parse_args (int argc, char **argv)
   }
 }
 
+#include <jpeglib.h>
+
+unsigned char *jpeg_load(const char *filename, int *width, int *height, int *stride)
+{ /* 96% of this code is the libjpeg example decoding code */
+  unsigned char *retbuf = NULL;
+  struct jpeg_decompress_struct cinfo;
+  FILE * infile;
+  JSAMPARRAY buffer;
+  int row_stride;
+  struct jpeg_error_mgr pub;
+  if ((infile = fopen(filename, "rb")) == NULL) {
+    fprintf(stderr, "can't open %s\n", filename);
+    return 0;
+  }
+  cinfo.err = jpeg_std_error(&pub);
+  jpeg_create_decompress(&cinfo);
+  cinfo.quantize_colors = FALSE;
+  cinfo.out_color_space = JCS_RGB;
+  jpeg_stdio_src(&cinfo, infile);
+  (void) jpeg_read_header(&cinfo, TRUE);
+  (void) jpeg_start_decompress(&cinfo);
+  row_stride = cinfo.output_width * cinfo.output_components;
+  buffer = (*cinfo.mem->alloc_sarray)
+		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+  /* XXX: need a bit more, jpeg lib overwrites by some bytes.. */
+  retbuf = malloc (cinfo.output_width * (cinfo.output_height + 1) * 4);
+  *width = cinfo.output_width;
+  *height = cinfo.output_height;
+  if (stride) *stride = cinfo.output_width * 4;
+  while (cinfo.output_scanline < cinfo.output_height) {
+	int x;
+    (void) jpeg_read_scanlines(&cinfo, buffer, 1);
+    for (x = 0; x < cinfo.output_width; x++)
+      {
+         int r = buffer[0][x * 3 + 0];
+         int g = buffer[0][x * 3 + 1];
+         int b = buffer[0][x * 3 + 2];
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 0] = r;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 1] = g;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 2] = b;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 3] = 255;
+      }
+  }
+  (void) jpeg_finish_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);
+  fclose(infile);
+  return retbuf;
+}
 
 unsigned char *image_load (const char *path, int *width, int *height, int *stride)
 {
-  return stbi_load (path, width, height, stride, 4);
+  if (strstr (path, ".jpg") ||
+      strstr (path, ".jpeg") ||
+      strstr (path, ".JPG"))
+  {
+	 return jpeg_load (path, width, height, stride);
+  }
+
+  if (strstr (path, ".png") ||
+      strstr (path, ".PNG"))
+  {
+  }
+  return NULL;
+  //return stbi_load (path, width, height, stride, 4);
 }
 
 int main (int argc, char **argv)
@@ -630,7 +694,7 @@ interactive_load_image:
     else
       path = images[image_no];
 
-  image = stbi_load (path, &image_w, &image_h, NULL, 4);
+  image = image_load (path, &image_w, &image_h, NULL);
 
   if (factor < 0)
   {
