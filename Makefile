@@ -1,8 +1,8 @@
 CFLAGS=-O2 -std=c99  -g
 
-sxv: *.c
-	gcc $(CFLAGS) -o $@ sxv.c -lm `pkg-config --cflags --libs libjpeg libpng`
+tv: *.c
+	gcc $(CFLAGS) -o $@ tv.c -lm `pkg-config --cflags --libs libjpeg libpng`
 clean:
-	rm sxv
+	rm tv
 install:
-	[ -f sxv ] && install sxv $(DESTDIR)$(PREFIX)/bin || true
+	[ -f tv ] && install tv $(DESTDIR)$(PREFIX)/bin || true

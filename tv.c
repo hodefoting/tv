@@ -176,7 +176,7 @@ void init (int *dw, int *dh)
 
 void usage ()
 {
-  printf ("usage: sxv [--help] [-w <width>] [-h <height>] [-o] [-v] [-g] [-p <palcount>] [-nd] <image1|pdf> [image2 [image3 [image4 ...]]]\n");
+  printf ("usage: tv [--help] [-w <width>] [-h <height>] [-o] [-v] [-g] [-p <palcount>] [-nd] <image1|pdf> [image2 [image3 [image4 ...]]]\n");
   printf ("options:\n");
   printf ("  --help  print this help\n");
   printf ("  -w <int>width in pixels (default terminal width)\n");
@@ -673,7 +673,6 @@ unsigned char *image_load (const char *path, int *width, int *height, int *strid
   }
 
   if (strstr (path, ".tga") ||
-      strstr (path, ".ppm") ||
       strstr (path, ".pgm") ||
       strstr (path, ".gif") ||
       strstr (path, ".GIF") ||
