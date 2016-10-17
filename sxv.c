@@ -6,14 +6,56 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <termios.h>
-
-#if 0
+#include <libgen.h>
+#include <sys/time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#endif
-#include <libgen.h>
-#include <sys/time.h>
+#include <jpeglib.h>
+#include <png.h>
+
+unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
+  FILE *fp = fopen(filename, "rb");
+  unsigned char ** scanlines;
+  unsigned char *ret_buf = NULL;
+  int i;
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+                                           NULL, NULL, NULL);
+  if(!png)
+    return NULL;
+
+  png_infop info = png_create_info_struct(png);
+  if(!info)
+    return NULL;
+
+  if(setjmp (png_jmpbuf (png)))
+    return NULL;
+
+  png_init_io (png, fp);
+  png_read_info(png, info);
+  *rw = png_get_image_width (png, info);
+  *rh = png_get_image_height (png, info);
+  if (rs) *rs = png_get_image_width (png, info) * 4;
+
+  png_set_gray_to_rgb (png);
+  png_set_strip_16 (png);
+  png_set_palette_to_rgb (png);
+  png_set_tRNS_to_alpha (png);
+  png_set_expand_gray_1_2_4_to_8 (png);
+  png_set_filler (png, 0xFF, PNG_FILLER_AFTER);
+
+  png_read_update_info (png, info);
+
+  ret_buf = malloc(*rw * *rh * 4);
+  scanlines = (png_bytep*)malloc(sizeof(png_bytep) * *rh);
+  for(i = 0; i < *rh; i++)
+    scanlines[i] = (png_byte*)&ret_buf[*rw * 4 * i];
+  png_read_image(png, scanlines);
+  free (scanlines);
+  png_destroy_read_struct (&png, &info, NULL);
+  fclose(fp);
+  return ret_buf;
+}
 
 void sixel_out_char (int ch)
 {
@@ -567,7 +609,6 @@ void parse_args (int argc, char **argv)
   }
 }
 
-#include <jpeglib.h>
 
 unsigned char *jpeg_load(const char *filename, int *width, int *height, int *stride)
 { /* 96% of this code is the libjpeg example decoding code */
@@ -628,9 +669,19 @@ unsigned char *image_load (const char *path, int *width, int *height, int *strid
   if (strstr (path, ".png") ||
       strstr (path, ".PNG"))
   {
+	 return png_load (path, width, height, stride);
   }
+
+  if (strstr (path, ".tga") ||
+      strstr (path, ".ppm") ||
+      strstr (path, ".pgm") ||
+      strstr (path, ".gif") ||
+      strstr (path, ".GIF") ||
+      strstr (path, ".tiff") ||
+      strstr (path, ".bmp") ||
+      strstr (path, ".tiff"))
+    return stbi_load (path, width, height, stride, 4);
   return NULL;
-  //return stbi_load (path, width, height, stride, 4);
 }
 
 int main (int argc, char **argv)
@@ -695,6 +746,11 @@ interactive_load_image:
       path = images[image_no];
 
   image = image_load (path, &image_w, &image_h, NULL);
+  if (!image)
+  {
+    cmd_next ();
+    goto interactive_load_image;
+  }
 
   if (factor < 0)
   {
@@ -932,6 +988,7 @@ interactive_load_image:
     if (image_no < images_c - 1)
     {
       usleep (delay * 1000.0 * 1000.0);
+      sixel_outf ("\n");
       cmd_next ();
     }
   }
