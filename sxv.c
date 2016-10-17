@@ -868,38 +868,3 @@ interactive_load_image:
   sixel_outf ("\n\n");
   return 0;
 }
-
-/* not used anymore - but useful to make thumbnails and similar,. */
-void *
-rescale_image (char *image, int *pw, int *ph, int max_w, int max_h)
-{
-  char *new_image;
-  int w = *pw;
-  int h = *ph;
-  float factor = 1.0f * max_w / w;
-  int x,y;
-  int i;
-  if (1.0f * max_h / h < factor)
-    factor = 1.0f * max_h / h;
-  w = ceil (w * factor);
-  h = ceil (h * factor);
-  new_image = malloc (w * h * 4);
-
-  i = 0;
-  for (y = 0; y < h; y++)
-    for (x = 0; x < w; x++)
-    {
-      int u = x / factor;
-      int v = y / factor;
-      new_image[i + 0] = image[(v * *pw + u) * 4 + 0];
-      new_image[i + 1] = image[(v * *pw + u) * 4 + 1];
-      new_image[i + 2] = image[(v * *pw + u) * 4 + 2];
-      new_image[i + 3] = image[(v * *pw + u) * 4 + 3];
-      i+=4;
-    }
-  *pw = w;
-  *ph = h;
-
-  free (image);
-  return new_image;
-}
