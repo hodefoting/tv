@@ -563,6 +563,12 @@ void parse_args (int argc, char **argv)
   }
 }
 
+
+unsigned char *image_load (const char *path, int *width, int *height, int *stride)
+{
+  return stbi_load (path, width, height, stride, 4);
+}
+
 int main (int argc, char **argv)
 {
   int x, y;
