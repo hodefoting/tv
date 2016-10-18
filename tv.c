@@ -288,10 +288,10 @@ EvReaction cmd_help (void)
     free (message);
     message = NULL;
   }
-  else
+  //else
   {
     message = strdup ("zoom: 1wf+- pan: cursor keys  next prev: pgdn,space pgup backspace");
-    message_ttl = 2;
+    message_ttl = 1;
   }
   return REDRAW;
 }
@@ -382,6 +382,40 @@ EvReaction cmd_verbosity (void)
 
 
 #define ZOOM_FACTOR 1.33333
+#define ZOOM_FACTOR_SMALL 1.05
+
+
+EvReaction cmd_zoom_in_small (void)
+{
+  if (x_offset == 0.0 && y_offset == 0.0)
+  {
+    factor /= ZOOM_FACTOR_SMALL;
+  }
+  else
+  {
+    x_offset += desired_width * 0.5 * factor ;
+    y_offset += desired_height * 0.5 * factor ;
+
+    factor /= ZOOM_FACTOR_SMALL;
+
+    x_offset -= desired_width * 0.5 * factor ;
+    y_offset -= desired_height * 0.5 * factor ;
+  }
+
+  return REDRAW;
+}
+
+EvReaction cmd_zoom_out_small (void)
+{
+  x_offset += desired_width * 0.5 * factor ;
+  y_offset += desired_height * 0.5 * factor ;
+
+  factor *= ZOOM_FACTOR_SMALL;
+
+  x_offset -= desired_width * 0.5 * factor ;
+  y_offset -= desired_height * 0.5 * factor ;
+  return REDRAW;
+}
 
 EvReaction cmd_zoom_in (void)
 {
@@ -509,6 +543,10 @@ Action actions[] = {
   {"+",     cmd_zoom_in},
   {"=",     cmd_zoom_in},
   {"-",     cmd_zoom_out},
+  {"a",     cmd_zoom_in_small},
+  {"z",     cmd_zoom_out_small},
+  {"A",     cmd_zoom_in},
+  {"Z",     cmd_zoom_out},
   {"p",     cmd_pal_up},
   {"P",     cmd_pal_down},
   {"q",     cmd_quit},
@@ -597,18 +635,18 @@ void print_status (void)
     }
 
     if (verbosity > 0)
-    sixel_outf (" %ix%i", image_w, image_h);
+      sixel_outf (" %ix%i", image_w, image_h);
 
     if (verbosity > 1)
     {
       if (grayscale)
-        sixel_outf (" gray");
+        sixel_outf (" -g");
       if (slideshow)
-        sixel_outf (" slide");
+        sixel_outf (" -s");
       if (!do_dither)
-        sixel_outf (" nodither");
+        sixel_outf (" -nd");
 
-      sixel_outf (" colors:%d", palcount);
+      sixel_outf (" -p %d", palcount);
     }
   }
 }
@@ -1008,7 +1046,7 @@ interactive_load_image:
                 if (grayscale)
                 {
                   dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 >= green))
+                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
                     sixel |= (1<<v);
                 }
                 else
