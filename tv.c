@@ -230,7 +230,6 @@ static void _nc_noraw (void)
     nc_is_raw = 0;
 }
 
-
 static void
 sixel_at_exit (void)
 {
@@ -370,7 +369,6 @@ EvReaction cmd_left_small (void)
   return REDRAW;
 }
 
-
 EvReaction cmd_grayscale (void)
 {
   grayscale = !grayscale;
@@ -405,11 +403,8 @@ EvReaction cmd_verbosity (void)
   return REDRAW;
 }
 
-
-
 #define ZOOM_FACTOR 1.33333
 #define ZOOM_FACTOR_SMALL 1.05
-
 
 EvReaction cmd_zoom_in_small (void)
 {
@@ -511,7 +506,6 @@ EvReaction cmd_zoom_fill (void)
 
   return cmd_center ();
 }
-
 
 EvReaction cmd_zoom_1 (void)
 {
