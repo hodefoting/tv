@@ -251,8 +251,8 @@ static int _nc_raw (void)
 }
 
 float factor   = -1.0;
-float x_offset = -10.0;
-float y_offset = -10.0;
+float x_offset = 0.0;
+float y_offset = 0.0;
 int palcount = 16;
 int do_dither = 1;
 int grayscale = 0;
@@ -466,19 +466,34 @@ EvReaction cmd_zoom_width (void)
   return REDRAW;
 }
 
-EvReaction cmd_zoom_fit (void)
+EvReaction cmd_center (void)
 {
-  x_offset = 0;
-  y_offset = 0;
-  cmd_zoom_width ();
-  if (factor < 1.0 * image_h / desired_height)
-    factor = 1.0 * image_h / desired_height;
-
   x_offset = -(desired_width - image_w / factor) / 2 * factor;
   y_offset = -(desired_height - image_h / factor) / 2 * factor;
 
   return REDRAW;
 }
+
+EvReaction cmd_zoom_fit (void)
+{
+  cmd_zoom_width ();
+
+  if (factor < 1.0 * image_h / desired_height)
+    factor = 1.0 * image_h / desired_height;
+
+  return cmd_center ();
+}
+
+EvReaction cmd_zoom_fill (void)
+{
+  cmd_zoom_width ();
+
+  if (factor > 1.0 * image_h / desired_height)
+    factor = 1.0 * image_h / desired_height;
+
+  return cmd_center ();
+}
+
 
 EvReaction cmd_zoom_1 (void)
 {
@@ -546,6 +561,7 @@ Action actions[] = {
   {"s",     cmd_slideshow},
   {"v",     cmd_verbosity},
   {"f",     cmd_zoom_fit},
+  {"F",     cmd_zoom_fill},
   {"w",     cmd_zoom_width},
   {"1",     cmd_zoom_1},
   {"+",     cmd_zoom_in},
@@ -893,10 +909,12 @@ interactive_load_image:
 
   if (factor < 0)
   {
+    cmd_zoom_fill ();
     if (pdf)
-      cmd_zoom_width ();
-    else
-      cmd_zoom_fit ();
+    {
+      x_offset = 0.0;
+      y_offset = 0.0;
+    }
   }
 
   if (!image)
@@ -905,9 +923,9 @@ interactive_load_image:
     return -1;
   }
 
-    init (&desired_width, &desired_height);
+  init (&desired_width, &desired_height);
   interactive_again:
-    if (0){}
+  if (0){}
 
   int   RED_LEVELS   = 2;
   int   GREEN_LEVELS = 4;
