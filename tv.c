@@ -12,7 +12,7 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-//#define DELTA_FRAME 1
+#define DELTA_FRAME 1
 
 // DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
 // starts off with background-color colored data, rather than the original data
@@ -885,7 +885,7 @@ void resample_image (const unsigned char *image,
                 offset = (int)((image_h-q0) * image_w + z0)*4;
                 if (q1 < image_h &&
                     z1 < image_w && q0 >= 0 && z0 >= 0)
-                  got_coverage = image[offset+3]>127;
+                  got_coverage = 1;//image[offset+3]>127;
                   break;
                 default:
               case 0:
@@ -893,7 +893,7 @@ void resample_image (const unsigned char *image,
   
                 if (z1 < image_h &&
                     q1 < image_w && z0 >= 0 && q0 >= 0)
-                    got_coverage = image[offset+3]>127;
+                    got_coverage = 1;//image[offset+3]>127;
                 break;
             }
 
