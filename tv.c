@@ -12,8 +12,11 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-//#define DELTA_FRAME 1
+#define DELTA_FRAME 1
 
+// DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
+// starts off with background-color colored data, rather than the original data
+// of the framebuffer at the location.
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -1131,14 +1134,18 @@ interactive_load_image:
             }
             sixel_out (sixel);
           }
-#if 0
-        if (count == outw)
+
+        /* skip outputting entirely transparent, could even skip the set color and carriage return */
+        if (count == outw &&
+            current == 0)
           {
             count = 0;
             current = -1;
           }
-#endif
-          sixel_cr ();
+          else
+          {
+            sixel_cr ();
+          }
           palno++;
         }
         sixel_nl ();
