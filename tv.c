@@ -170,6 +170,7 @@ int images_c = 0;
 int status_y = 25;
 int status_x = 1;
 
+int *fb = NULL;
 void init (int *dw, int *dh)
 {
     struct winsize size = {0,0,0,0};
@@ -177,11 +178,18 @@ void init (int *dw, int *dh)
     if (result) {
       *dw = 400; /* default dims - works for xterm which is small*/
       *dh = 300;
-      return;
     }
-    status_y = size.ws_row;
-    *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(status_y + 1) - 12;
+    else
+    {
+      *dw = size.ws_xpixel ;
+      *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
+      status_y = size.ws_row;
+    }
+    if (fb)
+            free (fb);
+    fb = malloc (sizeof(int)* *dw * (*dh + 4) );
+    for (int i =0; i < *dw * *dh; i++)
+      fb[i] = -1;
 }
 
 void usage ()
@@ -809,6 +817,7 @@ unsigned char *image_load (const char *path, int *width, int *height, int *strid
   return NULL;
 }
 
+
 int main (int argc, char **argv)
 {
   int x, y;
@@ -896,8 +905,9 @@ interactive_load_image:
     return -1;
   }
 
-  interactive_again:
     init (&desired_width, &desired_height);
+  interactive_again:
+    if (0){}
 
   int   RED_LEVELS   = 2;
   int   GREEN_LEVELS = 4;
@@ -1047,7 +1057,13 @@ interactive_load_image:
                 {
                   dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
                   if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
-                    sixel |= (1<<v);
+                  {
+                    if (fb[(y+v) * outw + x] != palno)
+                    {
+                      fb[(y+v) * outw + x] = palno;
+                      sixel |= (1<<v);
+                    }
+                  }
                 }
                 else
                 {
@@ -1055,12 +1071,22 @@ interactive_load_image:
                       (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
                       (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
                       )
-                   sixel |= (1<<v);
+                   if (fb[(y+v) * outw + x] != palno)
+                   {
+                     fb[(y+v) * outw + x] = palno;
+                     sixel |= (1<<v);
+                   }
                 }
               }
               else
-                if (red == green && green == blue && blue == 0) sixel |= (1<<v);
-
+                if (red == green && green == blue && blue == 0)
+                {
+                   if (fb[(y+v) * outw + x] != palno)
+                   {
+                     fb[(y+v) * outw + x] = palno;
+                     sixel |= (1<<v);
+                   }
+                }
             }
             sixel_out (sixel);
           }
