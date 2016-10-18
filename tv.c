@@ -1063,7 +1063,7 @@ interactive_load_image:
                   offset = (int)((image_h-q0) * image_w + z0)*4;
 
                   if (q1 < image_h &&
-                    z1 < image_w && q0 >= 0 && z0 >= 0)
+                      z1 < image_w && q0 >= 0 && z0 >= 0)
                   got_coverage = image[offset+3] > 127;
                   break;
                 default:
