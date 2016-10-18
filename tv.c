@@ -162,10 +162,15 @@ void term_home ()
   sixel_out_str ( "[1H");
 }
 
-static float mask_a (int x, int y, int c)
+static inline float mask_a (int x, int y, int c)
 {
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
 }
+static inline float mask_x (int x, int y, int c)
+{
+  return ((((x + c * 67) ^ y * 236) * 119) & 255 ) / 128.0 / 2;
+}
+static float (*mask)(int x, int y, int c) = mask_a;
 
 char *images[4096]={0,};
 const char *pdf_path = NULL;
@@ -912,260 +917,260 @@ interactive_load_image:
     else
       path = images[image_no];
 
-  if (image)
-    free (image);
-  image = NULL;
-  image = image_load (path, &image_w, &image_h, NULL);
-  if (!image)
-  {
-    cmd_next ();
-    goto interactive_load_image;
-  }
-
-  if (factor < 0)
-  {
-    cmd_zoom_fill ();
-    if (pdf)
+    if (image)
+      free (image);
+    image = NULL;
+    image = image_load (path, &image_w, &image_h, NULL);
+    if (!image)
     {
-      x_offset = 0.0;
-      y_offset = 0.0;
+      cmd_next ();
+      goto interactive_load_image;
     }
-  }
 
-  if (!image)
-  {
-    sixel_outf ("\n\n");
-    return -1;
-  }
-
-  init (&desired_width, &desired_height);
-  interactive_again:
-  if (0){}
-
-  int   RED_LEVELS   = 2;
-  int   GREEN_LEVELS = 4;
-  int   BLUE_LEVELS  = 2;
-
-  {
-    if (palcount      >= 1000)
-    { RED_LEVELS = 10; GREEN_LEVELS = 10; BLUE_LEVELS  = 10; }
-    else if (palcount >= 729)
-    { RED_LEVELS = 9; GREEN_LEVELS = 9; BLUE_LEVELS  = 9; }
-    else if (palcount >= 512)
-    { RED_LEVELS = 8; GREEN_LEVELS = 8; BLUE_LEVELS  = 8; }
-    else if (palcount >= 343)
-    { RED_LEVELS = 7; GREEN_LEVELS = 7; BLUE_LEVELS  = 7; }
-    else if (palcount >= 252)
-    { RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6; }
-    else if (palcount >= 216)
-    { RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6; }
-    else if (palcount >= 150)
-    { RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5; }
-    else if (palcount >= 125)
-    { RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5; }
-    else if (palcount >= 64)
-    { RED_LEVELS = 4;  GREEN_LEVELS = 4; BLUE_LEVELS = 4; }
-    else if (palcount >= 32)
-    { RED_LEVELS  = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3; }
-    else if (palcount >= 24)
-    { RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2; }
-    else if (palcount >= 16) /* the most common case */
-    { RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2; }
-    else if (palcount >= 12) 
-    { RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2; }
-    else if (palcount >= 8) 
-    { RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2; }
-    else 
+    if (factor < 0)
     {
-      grayscale = 1;
-    }
-  }
-
-  red_max = RED_LEVELS;
-  green_max = GREEN_LEVELS;
-  blue_max = BLUE_LEVELS;
-
-  if (grayscale)
-  {
-    red_max = 1;
-    blue_max = 1;
-    RED_LEVELS = GREEN_LEVELS = BLUE_LEVELS = green_max = palcount;
-  }
-
-  // image = rescale_image (image, &w, &h, desired_width, desired_height);
-  int outw = desired_width;
-  int outh = desired_height;
-  
-  {
-    if (interactive)
-      print_status ();
-
-    if (zero_origin)
-      term_home ();
-    else
-      sixel_outf ("\r");
-
-    sixel_start ();
-      int palno = 1;
-      for (red   = 0; red   < red_max; red++)
-      for (blue  = 0; blue  < blue_max; blue++)
-      for (green = 0; green < green_max; green++)
+      cmd_zoom_fill ();
+      if (pdf)
       {
-        if (grayscale)
-          sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(GREEN_LEVELS-1),
-                                           green * 100/(GREEN_LEVELS-1),
-                                           green * 100/(GREEN_LEVELS-1));
-        else  
-          sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(RED_LEVELS-1),
-                                         green * 100/(GREEN_LEVELS-1),
-                                          blue * 100/(BLUE_LEVELS-1));
-        palno++;
+        x_offset = 0.0;
+        y_offset = 0.0;
       }
+    }
 
-      /* do resampling as part of view, not as a separate step */
-      for (y = 0; y < outh; )
+    if (!image)
+    {
+      sixel_outf ("\n\n");
+      return -1;
+    }
+
+    init (&desired_width, &desired_height);
+    interactive_again:
+    if (0){}
+
+    int   RED_LEVELS   = 2;
+    int   GREEN_LEVELS = 4;
+    int   BLUE_LEVELS  = 2;
+
+    {
+      if (palcount      >= 1000)
+      { RED_LEVELS = 10; GREEN_LEVELS = 10; BLUE_LEVELS  = 10; }
+      else if (palcount >= 729)
+      { RED_LEVELS = 9; GREEN_LEVELS = 9; BLUE_LEVELS  = 9; }
+      else if (palcount >= 512)
+      { RED_LEVELS = 8; GREEN_LEVELS = 8; BLUE_LEVELS  = 8; }
+      else if (palcount >= 343)
+      { RED_LEVELS = 7; GREEN_LEVELS = 7; BLUE_LEVELS  = 7; }
+      else if (palcount >= 252)
+      { RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6; }
+      else if (palcount >= 216)
+      { RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6; }
+      else if (palcount >= 150)
+      { RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5; }
+      else if (palcount >= 125)
+      { RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5; }
+      else if (palcount >= 64)
+      { RED_LEVELS = 4;  GREEN_LEVELS = 4; BLUE_LEVELS = 4; }
+      else if (palcount >= 32)
+      { RED_LEVELS  = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3; }
+      else if (palcount >= 24)
+      { RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2; }
+      else if (palcount >= 16) /* the most common case */
+      { RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2; }
+      else if (palcount >= 12) 
+      { RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2; }
+      else if (palcount >= 8) 
+      { RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2; }
+      else 
       {
-        palno=1;
+        grayscale = 1;
+      }
+    }
+
+    red_max = RED_LEVELS;
+    green_max = GREEN_LEVELS;
+    blue_max = BLUE_LEVELS;
+
+    if (grayscale)
+    {
+      red_max = 1;
+      blue_max = 1;
+      RED_LEVELS = GREEN_LEVELS = BLUE_LEVELS = green_max = palcount;
+    }
+
+    // image = rescale_image (image, &w, &h, desired_width, desired_height);
+    int outw = desired_width;
+    int outh = desired_height;
+  
+    {
+      if (interactive)
+        print_status ();
+
+      if (zero_origin)
+        term_home ();
+      else
+        sixel_outf ("\r");
+
+        sixel_start ();
+
+        int palno = 1;
         for (red   = 0; red   < red_max; red++)
         for (blue  = 0; blue  < blue_max; blue++)
         for (green = 0; green < green_max; green++)
         {
-          sixel_outf ( "#%d", palno);
-          for (x = 0; x < outw; x ++)
+          if (grayscale)
+            sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(GREEN_LEVELS-1),
+                                           green * 100/(GREEN_LEVELS-1),
+                                           green * 100/(GREEN_LEVELS-1));
+          else  
+            sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(RED_LEVELS-1),
+                                           green * 100/(GREEN_LEVELS-1),
+                                           blue * 100/(BLUE_LEVELS-1));
+          palno++;
+        }
+
+        /* do resampling as part of view, not as a separate step */
+        for (y = 0; y < outh; )
+        {
+          palno=1;
+          for (red   = 0; red   < red_max; red++)
+          for (blue  = 0; blue  < blue_max; blue++)
+          for (green = 0; green < green_max; green++)
           {
-            int sixel = 0;
-            int v;
-            int q0 = x     * factor + x_offset;
-            int q1 = (x+1) * factor + x_offset;
-            int dithered[4];
-            for (v = 0; v < 6; v++) // XXX: the code redithers,
-                                    //      instead of dithering to
-                                    //      a tempbuf and then blitting that
-                                    //      buf to sixel
+            sixel_outf ( "#%d", palno);
+            for (x = 0; x < outw; x ++)
             {
-              int got_coverage = 0;
-              int z0;
-              int z1;
+              int sixel = 0;
+              int v;
+              int q0 = x     * factor + x_offset;
+              int q1 = (x+1) * factor + x_offset;
+              int dithered[4];
+              for (v = 0; v < 6; v++) // XXX: the code redithers,
+                                      //      instead of dithering to
+                                      //      a tempbuf and then blitting that
+                                      //      buf to sixel
+              {
+                int got_coverage = 0;
+                int z0;
+                int z1;
 
-              z0 = (y + v) * factor + y_offset;
-              z1 = (y + v + 1) * factor + y_offset;
+                z0 = (y + v) * factor + y_offset;
+                z1 = (y + v + 1) * factor + y_offset;
               
-              int offset;
-              switch (rotate)
-              {
-                case 90:
-                  offset = (int)((image_h-q0) * image_w + z0)*4;
-
-                  if (q1 < image_h &&
+                int offset;
+                switch (rotate)
+                {
+                  case 90:
+                    offset = (int)((image_h-q0) * image_w + z0)*4;
+                    if (q1 < image_h &&
                       z1 < image_w && q0 >= 0 && z0 >= 0)
-                  got_coverage = image[offset+3] > 127;
-                  break;
-                default:
-                case 0:
-                  offset = (int)((z0) * image_w + q0)*4;
+                      got_coverage = image[offset+3] > 127;
+                    break;
+                  default:
+                  case 0:
+                    offset = (int)((z0) * image_w + q0)*4;
+  
+                    if (z1 < image_h &&
+                      q1 < image_w && z0 >= 0 && q0 >= 0)
+                    got_coverage = image[offset+3] > 127;
+                    break;
+                }
 
-                  if (z1 < image_h &&
-                    q1 < image_w && z0 >= 0 && q0 >= 0)
-                  got_coverage = image[offset+3] > 127;
-                  break;
-              }
-
-              if (got_coverage)
-              {
-                int z, q;
-                int c = 0;
-                int offset2;
-                dithered[0] = 0;
-                dithered[1] = 0;
-                dithered[2] = 0;
-                for (q = q0; q<=q1; q++)
-                  for (z = z0; z<=z1; z++)
-                  {
-                    switch (rotate)
+                if (got_coverage)
+                {
+                  int z, q;
+                  int c = 0;
+                  int offset2;
+                  dithered[0] = 0;
+                  dithered[1] = 0;
+                  dithered[2] = 0;
+                  for (q = q0; q<=q1; q++)
+                    for (z = z0; z<=z1; z++)
                     {
-                      case 90:
-                        offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
+                      switch (rotate)
+                      {
+                        case 90:
+                          offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
+                          break;
+                        case 0:
+                        default:
+                          offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
                         break;
-                      case 0:
-                      default:
-                        offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                      break;
+                      }
+                      dithered[0] += image[offset2 + 0];
+                      dithered[1] += image[offset2 + 1];
+                      dithered[2] += image[offset2 + 2];
+                      c++;
                     }
-                    dithered[0] += image[offset2 + 0];
-                    dithered[1] += image[offset2 + 1];
-                    dithered[2] += image[offset2 + 2];
-                    c++;
+                  dithered[0] /= c;
+                  dithered[1] /= c;
+                  dithered[2] /= c;
+                  if (do_dither)
+                  {
+                    dithered[0] += mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
+                    dithered[1] += mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
+                    dithered[2] += mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
                   }
-                dithered[0] /= c;
-                dithered[1] /= c;
-                dithered[2] /= c;
-                if (do_dither)
-                {
-                  dithered[0] += mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
-                  dithered[1] += mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
-                  dithered[2] += mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
+                  else
+                  {
+                    dithered[0] += 0.5 * 255/(RED_LEVELS-1);
+                    dithered[1] += 0.5 * 255/(GREEN_LEVELS-1);
+                    dithered[2] += 0.5 * 255/(BLUE_LEVELS-1);
+                  }
+
+                  if (grayscale)
+                  {
+                    dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
+                    if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
+                    {
+#ifdef DELTA_FRAME
+                      if (fb[(y+v) * outw + x] != palno)
+                      {
+                        fb[(y+v) * outw + x] = palno;
+#endif
+                        sixel |= (1<<v);
+#ifdef DELTA_FRAME
+                      }
+#endif
+                    }
+                  }
+                  else
+                  {
+                    if ((dithered[0] * (RED_LEVELS-1)   / 255 == red) &&
+                        (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
+                        (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
+                         )
+#ifdef DELTA_FRAME
+                     if (fb[(y+v) * outw + x] != palno)
+                     {
+                       fb[(y+v) * outw + x] = palno;
+#endif
+                       sixel |= (1<<v);
+#ifdef DELTA_FRAME
+                     }
+#endif
+                  }
                 }
                 else
-                {
-                  dithered[0] += 0.5 * 255/(RED_LEVELS-1);
-                  dithered[1] += 0.5 * 255/(GREEN_LEVELS-1);
-                  dithered[2] += 0.5 * 255/(BLUE_LEVELS-1);
-                }
-
-                if (grayscale)
-                {
-                  dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-                  if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
+                  if (red == green && green == blue && blue == 0)
                   {
 #ifdef DELTA_FRAME
-                    if (fb[(y+v) * outw + x] != palno)
-                    {
-                      fb[(y+v) * outw + x] = palno;
+                     if (fb[(y+v) * outw + x] != palno)
+                     {
+                       fb[(y+v) * outw + x] = palno;
 #endif
-                      sixel |= (1<<v);
+                       sixel |= (1<<v);
 #ifdef DELTA_FRAME
-                    }
+                     }
 #endif
                   }
-                }
-                else
-                {
-                  if ((dithered[0] * (RED_LEVELS-1)   / 255 == red) &&
-                      (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                      (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
-                      )
-#ifdef DELTA_FRAME
-                   if (fb[(y+v) * outw + x] != palno)
-                   {
-                     fb[(y+v) * outw + x] = palno;
-#endif
-                     sixel |= (1<<v);
-#ifdef DELTA_FRAME
-                   }
-#endif
-                }
               }
-              else
-                if (red == green && green == blue && blue == 0)
-                {
-#ifdef DELTA_FRAME
-                   if (fb[(y+v) * outw + x] != palno)
-                   {
-                     fb[(y+v) * outw + x] = palno;
-#endif
-                     sixel |= (1<<v);
-#ifdef DELTA_FRAME
-                   }
-#endif
-                }
+              sixel_out (sixel);
             }
-            sixel_out (sixel);
-          }
 
-        /* skip outputting entirely transparent, could even skip the set color and carriage return */
+      /* skip outputting entirely transparent, could even skip the set color and carriage return */
         if (count == outw &&
             current == 0)
-          {
+            {
             count = 0;
             current = -1;
           }
@@ -1193,12 +1198,9 @@ interactive_load_image:
       }
       sixel_end ();
 
-      //sixel_outf ("\r");
-
       if (interactive)
       {
         print_status ();
-
         ev_again:
         switch (handle_input())
         {
