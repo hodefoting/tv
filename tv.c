@@ -855,110 +855,19 @@ void blit_sixel (const char *rgba,
                  int         rowstride,
                  int         x0,
                  int         y0,
-                 int         width,
-                 int         height,
-                 int         transparency,
-                 int        *fb)
+                 int         outw,
+                 int         outh,
+                 int         grayscale,
+                 int         palcount,
+                 int         transparency
+#ifdef DELTA_FRAME
+                 ,
+                 int        *fb
+#endif
+                 )
 {
-
-
-}
-
-int main (int argc, char **argv)
-{
-  int x, y;
-  int red;
-  int green;
-  int blue;
+  int red, green, blue;
   int red_max, green_max, blue_max;
-
-  /* we initialize the terminals dimensions as defaults, before the commandline
-     gets to override these dimensions further 
-   */
-  init (&desired_width, &desired_height);
-
-  parse_args (argc, argv);
-  images[images_c] = NULL;
-
-  if (images_c <= 0)
-    {
-       usage ();
-    }
-
-  if (strstr (images[0], ".pdf") ||
-      strstr (images[0], ".PDF"))
-    {
-      FILE *fp;
-      char command[4096];
-      command[4095]=0;
-      pdf_path = images[0];
-      pdf = 1;
-      interactive = 1;
-      snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
-
-      fp = popen(command, "r");
-      if (fp == NULL)
-      {
-        fprintf (stderr, "failed to run ghostscript to count pages in PDF %s, aborting\n", pdf_path);
-        exit (-1);
-      }
-      fgets(command, sizeof(command), fp);
-      pdf = images_c = atoi (command);
-
-      if (verbosity > 2)
-        fprintf (stderr, "%i pages in pdf %s\n", images_c, pdf_path);
-      pclose (fp);
-    }
-
-  if (interactive)
-  {
-    zero_origin = 1;
-    _nc_raw();
-  }
-
-  message = strdup ("press ? or h for help");
-  message_ttl = 3;
-
-  for (image_no = 0; image_no < images_c; image_no++)
-  {
-interactive_load_image:
-    //fprintf (stderr,"[%s]\n", images[image_no]);
-
-    if (pdf)
-      path = prepare_pdf_page (pdf_path, image_no+1);
-    else
-      path = images[image_no];
-
-    if (image)
-      free (image);
-    image = NULL;
-    image = image_load (path, &image_w, &image_h, NULL);
-    if (!image)
-    {
-      cmd_next ();
-      goto interactive_load_image;
-    }
-
-    if (factor < 0)
-    {
-      cmd_zoom_fill ();
-      if (pdf)
-      {
-        x_offset = 0.0;
-        y_offset = 0.0;
-      }
-    }
-
-    if (!image)
-    {
-      sixel_outf ("\n\n");
-      return -1;
-    }
-
-    init (&desired_width, &desired_height);
-    interactive_again:
-    if (0){}
-
     int   red_levels   = 2;
     int   green_levels = 4;
     int   blue_levels  = 2;
@@ -1008,21 +917,10 @@ interactive_load_image:
       blue_max = 1;
       red_levels = green_levels = blue_levels = green_max = palcount;
     }
+  int x, y;
 
-    // image = rescale_image (image, &w, &h, desired_width, desired_height);
-    int outw = desired_width;
-    int outh = desired_height;
-  
-    {
-      if (interactive)
-        print_status ();
-
-      if (zero_origin)
-        term_home ();
-      else
-        sixel_outf ("\r");
-
-        sixel_start ();
+  term_home ();
+  sixel_start ();
 
         int palno = 1;
         for (red   = 0; red   < red_max; red++)
@@ -1212,6 +1110,124 @@ interactive_load_image:
 #endif
       }
       sixel_end ();
+}
+
+int main (int argc, char **argv)
+{
+  int x, y;
+  int red;
+  int green;
+  int blue;
+  int red_max, green_max, blue_max;
+
+  /* we initialize the terminals dimensions as defaults, before the commandline
+     gets to override these dimensions further 
+   */
+  init (&desired_width, &desired_height);
+
+  parse_args (argc, argv);
+  images[images_c] = NULL;
+
+  if (images_c <= 0)
+    {
+       usage ();
+    }
+
+  if (strstr (images[0], ".pdf") ||
+      strstr (images[0], ".PDF"))
+    {
+      FILE *fp;
+      char command[4096];
+      command[4095]=0;
+      pdf_path = images[0];
+      pdf = 1;
+      interactive = 1;
+      snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
+
+      fp = popen(command, "r");
+      if (fp == NULL)
+      {
+        fprintf (stderr, "failed to run ghostscript to count pages in PDF %s, aborting\n", pdf_path);
+        exit (-1);
+      }
+      fgets(command, sizeof(command), fp);
+      pdf = images_c = atoi (command);
+
+      if (verbosity > 2)
+        fprintf (stderr, "%i pages in pdf %s\n", images_c, pdf_path);
+      pclose (fp);
+    }
+
+  if (interactive)
+  {
+    zero_origin = 1;
+    _nc_raw();
+  }
+
+  message = strdup ("press ? or h for help");
+  message_ttl = 3;
+
+  for (image_no = 0; image_no < images_c; image_no++)
+  {
+interactive_load_image:
+    //fprintf (stderr,"[%s]\n", images[image_no]);
+
+    if (pdf)
+      path = prepare_pdf_page (pdf_path, image_no+1);
+    else
+      path = images[image_no];
+
+    if (image)
+      free (image);
+    image = NULL;
+    image = image_load (path, &image_w, &image_h, NULL);
+    if (!image)
+    {
+      cmd_next ();
+      goto interactive_load_image;
+    }
+
+    if (factor < 0)
+    {
+      cmd_zoom_fill ();
+      if (pdf)
+      {
+        x_offset = 0.0;
+        y_offset = 0.0;
+      }
+    }
+
+    if (!image)
+    {
+      sixel_outf ("\n\n");
+      return -1;
+    }
+
+    init (&desired_width, &desired_height);
+    interactive_again:
+    if (0){}
+
+    // image = rescale_image (image, &w, &h, desired_width, desired_height);
+    int outw = desired_width;
+    int outh = desired_height;
+               
+    {
+      if (interactive)
+        print_status ();
+
+      blit_sixel (image,
+                  image_w * 4,
+                  0,
+                  0,
+                  outw,
+                  outh,
+                  grayscale,
+                  palcount,
+                  0
+#ifdef DELTA_FRAME
+                  ,fb
+#endif
+                  );
 
       if (interactive)
       {
