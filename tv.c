@@ -12,7 +12,7 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-#define DELTA_FRAME 1
+//#define DELTA_FRAME 1
 
 // DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
 // starts off with background-color colored data, rather than the original data
@@ -170,7 +170,7 @@ static inline float mask_x (int x, int y, int c)
 {
   return ((((x + c * 67) ^ y * 236) * 119) & 255 ) / 128.0 / 2;
 }
-static float (*mask)(int x, int y, int c) = mask_a;
+static float (*mask)(int x, int y, int c) = mask_x;
 
 char *images[4096]={0,};
 const char *pdf_path = NULL;
@@ -937,18 +937,313 @@ void resample_image (const unsigned char *image,
   }
 }
 
-void blit_sixel (const unsigned char *rgba,
-                 int                  rowstride,
-                 int                  x0,
-                 int                  y0,
-                 int                  outw,
-                 int                  outh,
-                 int                  grayscale,
-                 int                  palcount,
-                 int                  transparency
+
+void dither_rgba (const unsigned char *rgba,
+                 unsigned int                 *pal,
+                       int                  rowstride,
+                       int                  outw,
+                       int                  outh,
+                       int                  grayscale,
+                       int                  palcount,
+                       int                  transparency
 #ifdef DELTA_FRAME
                  ,
-                 int                 *fb
+                       int                 *fb
+#endif
+                 )
+{
+  int red, green, blue;
+  int red_max, green_max, blue_max;
+  int red_levels   = 2;
+  int green_levels = 4;
+  int blue_levels  = 2;
+  {
+    if (palcount      >= 1000)
+    { red_levels = 10; green_levels = 10; blue_levels  = 10; }
+    else if (palcount >= 729)
+    { red_levels = 9; green_levels = 9; blue_levels  = 9; }
+    else if (palcount >= 512)
+    { red_levels = 8; green_levels = 8; blue_levels  = 8; }
+    else if (palcount >= 343)
+    { red_levels = 7; green_levels = 7; blue_levels  = 7; }
+    else if (palcount >= 252)
+    { red_levels = 6; green_levels = 7; blue_levels  = 6; }
+    else if (palcount >= 216)
+    { red_levels = 6; green_levels = 6; blue_levels  = 6; }
+    else if (palcount >= 150)
+    { red_levels = 5; green_levels = 6; blue_levels  = 5; }
+    else if (palcount >= 125)
+    { red_levels = 5; green_levels = 5; blue_levels  = 5; }
+    else if (palcount >= 64)
+    { red_levels = 4;  green_levels = 4; blue_levels = 4; }
+    else if (palcount >= 32)
+    { red_levels  = 3; green_levels = 3; blue_levels = 3; }
+    else if (palcount >= 24)
+    { red_levels  = 3; green_levels = 4; blue_levels = 2; }
+    else if (palcount >= 16) /* the most common case */
+    { red_levels  = 2; green_levels = 4; blue_levels  = 2; }
+    else if (palcount >= 12) 
+    { red_levels  = 2; green_levels = 3; blue_levels  = 2; }
+    else if (palcount >= 8) 
+    { red_levels  = 2; green_levels = 2; blue_levels  = 2; }
+    else 
+    {
+      grayscale = 1;
+    }
+  }
+
+  red_max = red_levels;
+  green_max = green_levels;
+  blue_max = blue_levels;
+
+  if (grayscale)
+    {
+      red_max = 1;
+      blue_max = 1;
+      red_levels = green_levels = blue_levels = green_max = palcount;
+    }
+  int x, y;
+  int palno = 0;
+
+  /* do resampling as part of view, not as a separate step */
+  for (y = 0; y < outh; )
+  {
+    {
+      for (x = 0; x < outw; x ++)
+      {
+        int dithered[4];
+          {
+            int got_coverage = 0;
+            int offset = (y) * outw * 4 + x*4;
+            got_coverage = rgba[offset+3] > 127;
+
+            if (got_coverage)
+              {
+                dithered[0] = rgba[offset+0];
+                dithered[1] = rgba[offset+1];
+                dithered[2] = rgba[offset+2];
+                dithered[3] = rgba[offset+3];
+                if (do_dither)
+                {
+                  dithered[0] += mask_a (x, y, 0) * 255/(red_levels-1);
+                  dithered[1] += mask_a (x, y, 1) * 255/(green_levels-1);
+                  dithered[2] += mask_a (x, y, 2) * 255/(blue_levels-1);
+                }
+                else
+                {
+                  dithered[0] += 0.5 * 255/(red_levels-1);
+                  dithered[1] += 0.5 * 255/(green_levels-1);
+                  dithered[2] += 0.5 * 255/(blue_levels-1);
+                }
+
+                if (grayscale)
+                {
+                  dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
+                  pal[offset/4] = (dithered[1] * (green_levels -1) / 255);
+                }
+             else
+             {
+               if (dithered[0] > 255)
+                dithered[0] = 255;
+               if (dithered[1] > 255)
+                dithered[1] = 255;
+               if (dithered[2] > 255)
+                dithered[2] = 255;
+
+               if (dithered[0] < 0)
+                dithered[0] = 0;
+               if (dithered[1] < 0)
+                dithered[1] = 0;
+               if (dithered[2] < 0)
+                dithered[2] = 0;
+
+               pal[offset/4] = 0 + 
+                  (dithered[0] * (red_levels-1)   / 255) * blue_levels * green_levels+
+                  (dithered[2] * (blue_levels-1)  / 255) * green_levels + 
+                  (dithered[1] * (green_levels-1)  / 255);
+             }
+           }
+         else if (red == green && green == blue && blue == 0)
+           {
+             pal[offset/4] = 0;
+           }
+          }
+       }
+
+      /* skip outputting entirely transparent, could even skip the set color and carriage return */
+       if (count == outw &&
+           current == 0)
+       {
+         count = 0;
+         current = -1;
+       }
+       else
+       {
+       }
+     }
+     y ++;
+  }
+}
+
+void blit_sixel_pal (unsigned int        *pal,
+                     int                  rowstride,
+                     int                  x0,
+                     int                  y0,
+                     int                  outw,
+                     int                  outh,
+                     int                  grayscale,
+                     int                  palcount,
+                     int                  transparency
+#ifdef DELTA_FRAME
+                 ,
+                      int                 *fb
+#endif
+                 )
+{
+  int red, green, blue;
+  int red_max, green_max, blue_max;
+  int red_levels   = 2;
+  int green_levels = 4;
+  int blue_levels  = 2;
+
+  {
+    if (palcount      >= 1000)
+    { red_levels = 10; green_levels = 10; blue_levels  = 10; }
+    else if (palcount >= 729)
+    { red_levels = 9; green_levels = 9; blue_levels  = 9; }
+    else if (palcount >= 512)
+    { red_levels = 8; green_levels = 8; blue_levels  = 8; }
+    else if (palcount >= 343)
+    { red_levels = 7; green_levels = 7; blue_levels  = 7; }
+    else if (palcount >= 252)
+    { red_levels = 6; green_levels = 7; blue_levels  = 6; }
+    else if (palcount >= 216)
+    { red_levels = 6; green_levels = 6; blue_levels  = 6; }
+    else if (palcount >= 150)
+    { red_levels = 5; green_levels = 6; blue_levels  = 5; }
+    else if (palcount >= 125)
+    { red_levels = 5; green_levels = 5; blue_levels  = 5; }
+    else if (palcount >= 64)
+    { red_levels = 4;  green_levels = 4; blue_levels = 4; }
+    else if (palcount >= 32)
+    { red_levels  = 3; green_levels = 3; blue_levels = 3; }
+    else if (palcount >= 24)
+    { red_levels  = 3; green_levels = 4; blue_levels = 2; }
+    else if (palcount >= 16) /* the most common case */
+    { red_levels  = 2; green_levels = 4; blue_levels  = 2; }
+    else if (palcount >= 12) 
+    { red_levels  = 2; green_levels = 3; blue_levels  = 2; }
+    else if (palcount >= 8) 
+    { red_levels  = 2; green_levels = 2; blue_levels  = 2; }
+    else 
+    {
+      grayscale = 1;
+    }
+  }
+
+  red_max = red_levels;
+  green_max = green_levels;
+  blue_max = blue_levels;
+
+  if (grayscale)
+    {
+      red_max = 1;
+      blue_max = 1;
+      red_levels = green_levels = blue_levels = green_max = palcount;
+    }
+  int x, y;
+
+  term_home ();
+  sixel_start ();
+
+  int palno = 0;
+  for (red   = 0; red   < red_max; red++)
+  for (blue  = 0; blue  < blue_max; blue++)
+  for (green = 0; green < green_max; green++)
+  {
+    if (grayscale)
+      sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(green_levels-1),
+                                     green * 100/(green_levels-1),
+                                     green * 100/(green_levels-1));
+    else  
+      sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(red_levels-1),
+                                           green * 100/(green_levels-1),
+                                           blue * 100/(blue_levels-1));
+    palno++;
+  }
+
+  /* do resampling as part of view, not as a separate step */
+  for (y = 0; y < outh; )
+  {
+    palno=0;
+    for (red   = 0; red   < red_max; red++)
+    for (blue  = 0; blue  < blue_max; blue++)
+    for (green = 0; green < green_max; green++)
+    {
+      sixel_outf ( "#%d", palno);
+      for (x = 0; x < outw; x ++)
+      {
+        int sixel = 0;
+        int v;
+        int dithered[4];
+        for (v = 0; v < 6; v++) // XXX: the code redithers,
+                                //      instead of dithering to
+                                //      a tempbuf and then blitting that
+                                //      buf to sixel
+          {
+            int got_coverage = 0;
+            int offset = (y + v) * outw * 4 + x*4;
+            got_coverage = 1;//rgba[offset+3] > 127;
+
+            if (got_coverage)
+              {
+                if (pal[offset/4] == palno)
+                  
+#ifdef DELTA_FRAME
+                    if (fb[(y+v) * outw + x] != palno)
+                    {
+                      fb[(y+v) * outw + x] = palno;
+#endif
+                      sixel |= (1<<v);
+#ifdef DELTA_FRAME
+                 }
+#endif
+               }
+          }
+          sixel_out (sixel);
+       }
+
+      /* skip outputting entirely transparent, could even skip the set color and carriage return */
+       if (count == outw &&
+           current == 0)
+       {
+         count = 0;
+         current = -1;
+       }
+       else
+       {
+         sixel_cr ();
+       }
+       palno++;
+     }
+     sixel_nl ();
+     y += 6;
+  }
+  sixel_end ();
+}
+
+void blit_sixel_rgba (const unsigned char *rgba,
+                      int                  rowstride,
+                      int                  x0,
+                      int                  y0,
+                      int                  outw,
+                      int                  outh,
+                      int                  grayscale,
+                      int                  palcount,
+                      int                  transparency
+#ifdef DELTA_FRAME
+                 ,
+                      int                 *fb
 #endif
                  )
 {
@@ -1234,6 +1529,7 @@ interactive_load_image:
                
     {
       unsigned char *rgba = malloc (outw * 4 * outh);
+      unsigned int *pal = malloc (outw * 4 * outh * sizeof (int));
       if (interactive)
         print_status ();
 
@@ -1244,17 +1540,9 @@ interactive_load_image:
                       x_offset,
                       y_offset,
                       factor);
+
 #if 0
-      for (y= 0; y < outh; y++)
-      for (x= 0; x < outw; x++)
-      {
-        rgba[y*outw*4 + x * 4 + 0] = x;
-        rgba[y*outw*4 + x * 4 + 1] = y;
-        rgba[y*outw*4 + x * 4 + 2] = x;
-        rgba[y*outw*4 + x * 4 + 3] = 255;
-      }
-#endif
-      blit_sixel (rgba,
+      blit_sixel_rgba (rgba,
                   outw * 4,
                   0,
                   0,
@@ -1267,6 +1555,34 @@ interactive_load_image:
                   ,fb
 #endif
                   );
+#else
+      dither_rgba (rgba,
+                   pal,
+                   outw * 4,
+                   outw,
+                   outh,
+                   grayscale,
+                   palcount,
+                   0
+#ifdef DELTA_FRAME
+                  ,fb
+#endif
+                  );
+      blit_sixel_pal (pal,
+                  outw * 4,
+                  0,
+                  0,
+                  outw,
+                  outh,
+                  grayscale,
+                  palcount,
+                  0
+#ifdef DELTA_FRAME
+                  ,fb
+#endif
+                  );
+
+#endif
 
       if (interactive)
       {
