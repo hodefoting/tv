@@ -851,6 +851,18 @@ unsigned char *image_load (const char *path, int *width, int *height, int *strid
   return NULL;
 }
 
+void blit_sixel (const char *rgba,
+                 int         rowstride,
+                 int         x0,
+                 int         y0,
+                 int         width,
+                 int         height,
+                 int         transparency,
+                 int        *fb)
+{
+
+
+}
 
 int main (int argc, char **argv)
 {
@@ -947,54 +959,54 @@ interactive_load_image:
     interactive_again:
     if (0){}
 
-    int   RED_LEVELS   = 2;
-    int   GREEN_LEVELS = 4;
-    int   BLUE_LEVELS  = 2;
+    int   red_levels   = 2;
+    int   green_levels = 4;
+    int   blue_levels  = 2;
 
     {
       if (palcount      >= 1000)
-      { RED_LEVELS = 10; GREEN_LEVELS = 10; BLUE_LEVELS  = 10; }
+      { red_levels = 10; green_levels = 10; blue_levels  = 10; }
       else if (palcount >= 729)
-      { RED_LEVELS = 9; GREEN_LEVELS = 9; BLUE_LEVELS  = 9; }
+      { red_levels = 9; green_levels = 9; blue_levels  = 9; }
       else if (palcount >= 512)
-      { RED_LEVELS = 8; GREEN_LEVELS = 8; BLUE_LEVELS  = 8; }
+      { red_levels = 8; green_levels = 8; blue_levels  = 8; }
       else if (palcount >= 343)
-      { RED_LEVELS = 7; GREEN_LEVELS = 7; BLUE_LEVELS  = 7; }
+      { red_levels = 7; green_levels = 7; blue_levels  = 7; }
       else if (palcount >= 252)
-      { RED_LEVELS = 6; GREEN_LEVELS = 7; BLUE_LEVELS  = 6; }
+      { red_levels = 6; green_levels = 7; blue_levels  = 6; }
       else if (palcount >= 216)
-      { RED_LEVELS = 6; GREEN_LEVELS = 6; BLUE_LEVELS  = 6; }
+      { red_levels = 6; green_levels = 6; blue_levels  = 6; }
       else if (palcount >= 150)
-      { RED_LEVELS = 5; GREEN_LEVELS = 6; BLUE_LEVELS  = 5; }
+      { red_levels = 5; green_levels = 6; blue_levels  = 5; }
       else if (palcount >= 125)
-      { RED_LEVELS = 5; GREEN_LEVELS = 5; BLUE_LEVELS  = 5; }
+      { red_levels = 5; green_levels = 5; blue_levels  = 5; }
       else if (palcount >= 64)
-      { RED_LEVELS = 4;  GREEN_LEVELS = 4; BLUE_LEVELS = 4; }
+      { red_levels = 4;  green_levels = 4; blue_levels = 4; }
       else if (palcount >= 32)
-      { RED_LEVELS  = 3; GREEN_LEVELS = 3; BLUE_LEVELS = 3; }
+      { red_levels  = 3; green_levels = 3; blue_levels = 3; }
       else if (palcount >= 24)
-      { RED_LEVELS  = 3; GREEN_LEVELS = 4; BLUE_LEVELS = 2; }
+      { red_levels  = 3; green_levels = 4; blue_levels = 2; }
       else if (palcount >= 16) /* the most common case */
-      { RED_LEVELS  = 2; GREEN_LEVELS = 4; BLUE_LEVELS  = 2; }
+      { red_levels  = 2; green_levels = 4; blue_levels  = 2; }
       else if (palcount >= 12) 
-      { RED_LEVELS  = 2; GREEN_LEVELS = 3; BLUE_LEVELS  = 2; }
+      { red_levels  = 2; green_levels = 3; blue_levels  = 2; }
       else if (palcount >= 8) 
-      { RED_LEVELS  = 2; GREEN_LEVELS = 2; BLUE_LEVELS  = 2; }
+      { red_levels  = 2; green_levels = 2; blue_levels  = 2; }
       else 
       {
         grayscale = 1;
       }
     }
 
-    red_max = RED_LEVELS;
-    green_max = GREEN_LEVELS;
-    blue_max = BLUE_LEVELS;
+    red_max = red_levels;
+    green_max = green_levels;
+    blue_max = blue_levels;
 
     if (grayscale)
     {
       red_max = 1;
       blue_max = 1;
-      RED_LEVELS = GREEN_LEVELS = BLUE_LEVELS = green_max = palcount;
+      red_levels = green_levels = blue_levels = green_max = palcount;
     }
 
     // image = rescale_image (image, &w, &h, desired_width, desired_height);
@@ -1018,13 +1030,13 @@ interactive_load_image:
         for (green = 0; green < green_max; green++)
         {
           if (grayscale)
-            sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(GREEN_LEVELS-1),
-                                           green * 100/(GREEN_LEVELS-1),
-                                           green * 100/(GREEN_LEVELS-1));
+            sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(green_levels-1),
+                                           green * 100/(green_levels-1),
+                                           green * 100/(green_levels-1));
           else  
-            sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(RED_LEVELS-1),
-                                           green * 100/(GREEN_LEVELS-1),
-                                           blue * 100/(BLUE_LEVELS-1));
+            sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(red_levels-1),
+                                           green * 100/(green_levels-1),
+                                           blue * 100/(blue_levels-1));
           palno++;
         }
 
@@ -1106,21 +1118,21 @@ interactive_load_image:
                   dithered[2] /= c;
                   if (do_dither)
                   {
-                    dithered[0] += mask_a (x, y + v, 0) * 255/(RED_LEVELS-1);
-                    dithered[1] += mask_a (x, y + v, 1) * 255/(GREEN_LEVELS-1);
-                    dithered[2] += mask_a (x, y + v, 2) * 255/(BLUE_LEVELS-1);
+                    dithered[0] += mask_a (x, y + v, 0) * 255/(red_levels-1);
+                    dithered[1] += mask_a (x, y + v, 1) * 255/(green_levels-1);
+                    dithered[2] += mask_a (x, y + v, 2) * 255/(blue_levels-1);
                   }
                   else
                   {
-                    dithered[0] += 0.5 * 255/(RED_LEVELS-1);
-                    dithered[1] += 0.5 * 255/(GREEN_LEVELS-1);
-                    dithered[2] += 0.5 * 255/(BLUE_LEVELS-1);
+                    dithered[0] += 0.5 * 255/(red_levels-1);
+                    dithered[1] += 0.5 * 255/(green_levels-1);
+                    dithered[2] += 0.5 * 255/(blue_levels-1);
                   }
 
                   if (grayscale)
                   {
                     dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-                    if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
+                    if ((dithered[1] * (green_levels-1) / 255 == green))
                     {
 #ifdef DELTA_FRAME
                       if (fb[(y+v) * outw + x] != palno)
@@ -1135,9 +1147,9 @@ interactive_load_image:
                   }
                   else
                   {
-                    if ((dithered[0] * (RED_LEVELS-1)   / 255 == red) &&
-                        (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
-                        (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
+                    if ((dithered[0] * (red_levels-1)   / 255 == red) &&
+                        (dithered[1] * (green_levels-1) / 255 == green) &&
+                        (dithered[2] * (blue_levels-1)  / 255 == blue)
                          )
 #ifdef DELTA_FRAME
                      if (fb[(y+v) * outw + x] != palno)
@@ -1182,19 +1194,22 @@ interactive_load_image:
         }
         sixel_nl ();
         y += 6;
+#if 0
         if (interactive)
         {
+        aa:
           switch (handle_input())
           {
             case REQUIT:  sixel_end();printf ("."); exit(0); break;
             case REDRAW:  sixel_end();goto interactive_again;
             case RELOAD:  sixel_end();goto interactive_load_image;
-            case REEVENT: 
+            case REEVENT: goto aa;
             case REIDLE:
             case RENONE:
             break;
           }
         }
+#endif
       }
       sixel_end ();
 
