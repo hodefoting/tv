@@ -12,6 +12,8 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
+//#define DELTA_FRAME 1
+
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -170,26 +172,30 @@ int images_c = 0;
 int status_y = 25;
 int status_x = 1;
 
+#ifdef DELTA_FRAME
 int *fb = NULL;
+#endif
 void init (int *dw, int *dh)
 {
-    struct winsize size = {0,0,0,0};
-    int result = ioctl (0, TIOCGWINSZ, &size);
-    if (result) {
-      *dw = 400; /* default dims - works for xterm which is small*/
-      *dh = 300;
-    }
-    else
-    {
-      *dw = size.ws_xpixel ;
-      *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
-      status_y = size.ws_row;
-    }
-    if (fb)
-            free (fb);
-    fb = malloc (sizeof(int)* *dw * (*dh + 4) );
-    for (int i =0; i < *dw * *dh; i++)
-      fb[i] = -1;
+  struct winsize size = {0,0,0,0};
+  int result = ioctl (0, TIOCGWINSZ, &size);
+  if (result) {
+    *dw = 400; /* default dims - works for xterm which is small*/
+    *dh = 300;
+  }
+  else
+  {
+    *dw = size.ws_xpixel ;
+    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
+    status_y = size.ws_row;
+  }
+#ifdef DELTA_FRAME
+  if (fb)
+    free (fb);
+  fb = malloc (sizeof(int)* *dw * (*dh + 4) );
+  for (int i =0; i < *dw * *dh; i++)
+    fb[i] = -1;
+#endif
 }
 
 void usage ()
@@ -892,6 +898,7 @@ int main (int argc, char **argv)
   for (image_no = 0; image_no < images_c; image_no++)
   {
 interactive_load_image:
+    //fprintf (stderr,"[%s]\n", images[image_no]);
 
     if (pdf)
       path = prepare_pdf_page (pdf_path, image_no+1);
@@ -900,6 +907,7 @@ interactive_load_image:
 
   if (image)
     free (image);
+  image = NULL;
   image = image_load (path, &image_w, &image_h, NULL);
   if (!image)
   {
@@ -982,10 +990,13 @@ interactive_load_image:
   int outh = desired_height;
   
   {
-    print_status ();
+    if (interactive)
+      print_status ();
 
     if (zero_origin)
       term_home ();
+    else
+      sixel_outf ("\r");
 
     sixel_start ();
       int palno = 1;
@@ -1076,9 +1087,13 @@ interactive_load_image:
                   dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
                   if ((dithered[1] * (GREEN_LEVELS-1) / 255 == green))
                   {
+#ifdef DELTA_FRAME
                     if (fb[(y+v) * outw + x] != palno)
                     {
                       fb[(y+v) * outw + x] = palno;
+#else
+                    {
+#endif
                       sixel |= (1<<v);
                     }
                   }
@@ -1089,9 +1104,13 @@ interactive_load_image:
                       (dithered[1] * (GREEN_LEVELS-1) / 255 == green) &&
                       (dithered[2] * (BLUE_LEVELS-1)  / 255 == blue)
                       )
+#ifdef DELTA_FRAME
                    if (fb[(y+v) * outw + x] != palno)
                    {
                      fb[(y+v) * outw + x] = palno;
+#else
+                   {
+#endif
                      sixel |= (1<<v);
                    }
                 }
@@ -1099,9 +1118,13 @@ interactive_load_image:
               else
                 if (red == green && green == blue && blue == 0)
                 {
+#ifdef DELTA_FRAME
                    if (fb[(y+v) * outw + x] != palno)
                    {
                      fb[(y+v) * outw + x] = palno;
+#else
+                   {
+#endif
                      sixel |= (1<<v);
                    }
                 }
@@ -1167,6 +1190,7 @@ interactive_load_image:
       }
     }
     free (image);
+    image = NULL;
     if (image_no < images_c - 1)
     {
       usleep (delay * 1000.0 * 1000.0);
@@ -1174,6 +1198,6 @@ interactive_load_image:
       cmd_next ();
     }
   }
-  sixel_outf ("\n\n");
+  sixel_outf ("\r");
   return 0;
 }
