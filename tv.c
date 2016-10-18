@@ -9,6 +9,10 @@
 #include <libgen.h>
 #include <sys/time.h>
 
+#define JUMPLEN 0.50
+#define JUMPSMALLLEN 0.05
+
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include <jpeglib.h>
@@ -142,6 +146,7 @@ void sixel_end ()
 
 void sixel_start ()
 {
+  sixel_out_str ("[?80h");
   sixel_out_str ( "P9;0;q");
 }
 
@@ -174,9 +179,9 @@ void init (int *dw, int *dh)
       *dh = 300;
       return;
     }
-    status_y = size.ws_row+1;
+    status_y = size.ws_row;
     *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - ceil((1.0*size.ws_ypixel)/status_y);
+    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(status_y + 1) - 12;
 }
 
 void usage ()
@@ -273,7 +278,23 @@ typedef struct Action {
   EvReaction (*handler) (void);
 } Action;
 
-#define JUMPLEN 0.50
+char *message = NULL;
+int message_ttl = 0;
+
+EvReaction cmd_help (void)
+{
+  if (message)
+  {
+    free (message);
+    message = NULL;
+  }
+  else
+  {
+    message = strdup ("zoom: 1wf+- pan: cursor keys  next prev: pgdn,space pgup backspace");
+    message_ttl = 2;
+  }
+  return REDRAW;
+}
 
 EvReaction cmd_up (void)
 {
@@ -282,6 +303,55 @@ EvReaction cmd_up (void)
     y_offset = 0;
   return REDRAW;
 }
+
+EvReaction cmd_down (void)
+{
+  y_offset = y_offset + (desired_height * JUMPLEN) * factor;
+  return REDRAW;
+}
+
+EvReaction cmd_right (void)
+{
+  x_offset = x_offset + (desired_height * JUMPLEN) * factor;
+  return REDRAW;
+}
+
+EvReaction cmd_left (void)
+{
+  x_offset = x_offset - (desired_height* JUMPLEN) * factor;
+  if (x_offset < 0)
+    x_offset = 0;
+  return REDRAW;
+}
+
+EvReaction cmd_up_small (void)
+{
+  y_offset = y_offset - (desired_height * JUMPSMALLLEN) * factor;
+  if (y_offset < 0)
+    y_offset = 0;
+  return REDRAW;
+}
+
+EvReaction cmd_down_small (void)
+{
+  y_offset = y_offset + (desired_height * JUMPSMALLLEN) * factor;
+  return REDRAW;
+}
+
+EvReaction cmd_right_small (void)
+{
+  x_offset = x_offset + (desired_height * JUMPSMALLLEN) * factor;
+  return REDRAW;
+}
+
+EvReaction cmd_left_small (void)
+{
+  x_offset = x_offset - (desired_height* JUMPSMALLLEN) * factor;
+  if (x_offset < 0)
+    x_offset = 0;
+  return REDRAW;
+}
+
 
 EvReaction cmd_grayscale (void)
 {
@@ -301,34 +371,15 @@ EvReaction cmd_slideshow (void)
   return REDRAW;
 }
 
-EvReaction cmd_down (void)
-{
-  y_offset = y_offset + (desired_height * JUMPLEN) * factor;
-  return REDRAW;
-}
-
-EvReaction cmd_right (void)
-{
-  x_offset = x_offset + (desired_height * JUMPLEN) * factor;
-  return REDRAW;
-}
-
 EvReaction cmd_verbosity (void)
 {
   verbosity ++;
-  if (verbosity > 4)
+  if (verbosity > 2)
     verbosity = 0;
   return REDRAW;
 }
 
 
-EvReaction cmd_left (void)
-{
-  x_offset = x_offset - (desired_height* JUMPLEN) * factor;
-  if (x_offset < 0)
-    x_offset = 0;
-  return REDRAW;
-}
 
 #define ZOOM_FACTOR 1.33333
 
@@ -377,10 +428,13 @@ EvReaction cmd_zoom_fit (void)
 {
   x_offset = 0;
   y_offset = 0;
-
   cmd_zoom_width ();
   if (factor < 1.0 * image_h / desired_height)
     factor = 1.0 * image_h / desired_height;
+
+  x_offset = -(desired_width - image_w / factor) / 2 * factor;
+  y_offset = -(desired_height - image_h / factor) / 2 * factor;
+
   return REDRAW;
 }
 
@@ -433,6 +487,10 @@ EvReaction cmd_prev (void)
 }
 
 Action actions[] = {
+  {"[1;2A",  cmd_up_small},
+  {"[1;2B",  cmd_down_small},
+  {"[1;2C",  cmd_right_small},
+  {"[1;2D",  cmd_left_small},
   {"[A",  cmd_up},
   {"[B",  cmd_down},
   {"[C",  cmd_right},
@@ -454,6 +512,7 @@ Action actions[] = {
   {"p",     cmd_pal_up},
   {"P",     cmd_pal_down},
   {"q",     cmd_quit},
+  {"?",     cmd_help},
   {NULL, NULL}
 };
 
@@ -471,18 +530,27 @@ EvReaction handle_input (void)
    {
      char buf[10];
      int length = 0;
-     if ((length=read (STDIN_FILENO, &buf[0], 5)) >= 0)
+     if ((length=read (STDIN_FILENO, &buf[0], 8)) >= 0)
      {
        buf[length]='\0';
        for (int i = 0; actions[i].input; i++)
          if (!strcmp (actions[i].input, buf))
            return actions[i].handler();
 
-       if (0)
+       if (verbosity > 2)
        {
-       for (int i = 0; i < length; i++)
-         fprintf (stderr, " [%d]=%c (%i)   \n     \n", i, buf[i]>32?buf[i]:' ', buf[i]);
-       fprintf (stderr, "len: %i [0]=(%c)%i   \n", length, buf[0]>32?buf[0]:' ', buf[0]);
+         int i = 0;
+         if (!message)
+         {
+           message = malloc (1200);
+           message[0]=0;
+         }
+         message_ttl = 4;
+
+         sprintf (&message[strlen(message)], "%c(%i)", buf[0]>=32?buf[0]:' ', buf[0]);
+         for (i = 1; i < length; i++)
+           sprintf (&message[strlen(message)], "%c", buf[i]>32?buf[i]:' ');
+         return REDRAW;
        }
 
        return REEVENT;
@@ -499,42 +567,49 @@ const char *prepare_pdf_page (const char *path, int page_no)
   return "/tmp/sxv-pdf.png";
 }
 
+
 void print_status (void)
 {
-  sixel_outf ( "[%d;%dH", status_y, status_x);
-  if (verbosity == 0)
+  sixel_outf ( "[%d;%dH[2K", status_y, status_x);
+  sixel_outf ("                                      \r");
+  if (message)
   {
-    sixel_outf ("                                    \r");
+    sixel_outf ("%s", message);
+    if (message_ttl -- <= 0)
+    {
+    free (message);
+    message = NULL;
+    message_ttl = 0;
+    }
+    return;
   }
   else
   {
-    if (verbosity > 1)
+    if (verbosity > 0)
     {
-      sixel_outf ("%.0f%% ",100.0/factor);
+      sixel_outf ("%i/%i", image_no+1, images_c);
+      sixel_outf (" %.0f%%",100.0/factor);
+
+      if (pdf)
+        sixel_outf (" %s", pdf_path);// basename(path));
+      else
+        sixel_outf (" %s", path);// basename(path));
     }
 
-    sixel_outf ("%i/%i", image_no+1, images_c);
-
-
-    if (pdf)
-      sixel_outf (" %s", pdf_path);// basename(path));
-    else
-      sixel_outf (" %s", path);// basename(path));
+    if (verbosity > 0)
     sixel_outf (" %ix%i", image_w, image_h);
 
     if (verbosity > 1)
     {
       if (grayscale)
-        sixel_outf (" -g");
+        sixel_outf (" gray");
       if (slideshow)
-        sixel_outf (" -s");
+        sixel_outf (" slide");
       if (!do_dither)
-        sixel_outf (" -nd");
+        sixel_outf (" nodither");
 
-      sixel_outf (" -p %d", palcount);
-
+      sixel_outf (" colors:%d", palcount);
     }
-    sixel_outf ("       \r");
   }
 }
 
@@ -748,6 +823,9 @@ int main (int argc, char **argv)
     _nc_raw();
   }
 
+  message = strdup ("press ? or h for help");
+  message_ttl = 3;
+
   for (image_no = 0; image_no < images_c; image_no++)
   {
 interactive_load_image:
@@ -757,6 +835,8 @@ interactive_load_image:
     else
       path = images[image_no];
 
+  if (image)
+    free (image);
   image = image_load (path, &image_w, &image_h, NULL);
   if (!image)
   {
@@ -974,7 +1054,7 @@ interactive_load_image:
       }
       sixel_end ();
 
-      sixel_outf ("\r");
+      //sixel_outf ("\r");
 
       if (interactive)
       {
@@ -1003,7 +1083,6 @@ interactive_load_image:
             break;
         }
       }
-
     }
     free (image);
     if (image_no < images_c - 1)
