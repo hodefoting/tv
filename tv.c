@@ -870,7 +870,7 @@ void resample_image (const unsigned char *image,
         int v = 0;
         int q0 = x     * factor + x_offset;
         int q1 = (x+1) * factor + x_offset;
-        int dithered[4];
+        int dithered[4] = {0,0,0,0};
             int got_coverage = 0;
             int z0;
             int z1;
@@ -885,7 +885,7 @@ void resample_image (const unsigned char *image,
                 offset = (int)((image_h-q0) * image_w + z0)*4;
                 if (q1 < image_h &&
                     z1 < image_w && q0 >= 0 && z0 >= 0)
-                  got_coverage = 1;
+                  got_coverage = image[offset+3]>127;
                   break;
                 default:
               case 0:
@@ -893,7 +893,7 @@ void resample_image (const unsigned char *image,
   
                 if (z1 < image_h &&
                     q1 < image_w && z0 >= 0 && q0 >= 0)
-                    got_coverage = 1;
+                    got_coverage = image[offset+3]>127;
                 break;
             }
 
@@ -1047,7 +1047,7 @@ void blit_sixel (const unsigned char *rgba,
             int offset = (y + v) * outw * 4 + x*4;
             got_coverage = rgba[offset+3] > 127;
 
-            if (got_coverage || 1)
+            if (got_coverage)
               {
                 dithered[0] = rgba[offset+0];
                 dithered[1] = rgba[offset+1];
@@ -1244,16 +1244,16 @@ interactive_load_image:
                       x_offset,
                       y_offset,
                       factor);
+#if 0
       for (y= 0; y < outh; y++)
       for (x= 0; x < outw; x++)
       {
-#if 0
         rgba[y*outw*4 + x * 4 + 0] = x;
         rgba[y*outw*4 + x * 4 + 1] = y;
         rgba[y*outw*4 + x * 4 + 2] = x;
-#endif
         rgba[y*outw*4 + x * 4 + 3] = 255;
       }
+#endif
       blit_sixel (rgba,
                   outw * 4,
                   0,
