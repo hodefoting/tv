@@ -12,7 +12,7 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-#define DELTA_FRAME 1
+//#define DELTA_FRAME 1
 
 // DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
 // starts off with background-color colored data, rather than the original data
@@ -97,6 +97,7 @@ void sixel_flush (void)
 #else
 int current = -1;
 int count = 0;
+int rotate = 90;
 
 void sixel_flush (void)
 {
@@ -382,6 +383,14 @@ EvReaction cmd_do_dither (void)
   return REDRAW;
 }
 
+EvReaction cmd_rotate (void)
+{
+  rotate += 90;
+  while (rotate>180)
+    rotate-=180;
+  return REDRAW;
+}
+
 EvReaction cmd_slideshow (void)
 {
   slideshow = !slideshow;
@@ -583,6 +592,7 @@ Action actions[] = {
   {"p",     cmd_pal_up},
   {"P",     cmd_pal_down},
   {"q",     cmd_quit},
+  {"r",     cmd_rotate},
   {"?",     cmd_help},
   {NULL, NULL}
 };
@@ -1031,7 +1041,7 @@ interactive_load_image:
           {
             int sixel = 0;
             int v;
-            int q0 = x * factor + x_offset;
+            int q0 = x     * factor + x_offset;
             int q1 = (x+1) * factor + x_offset;
             int dithered[4];
             for (v = 0; v < 6; v++) // XXX: the code redithers,
@@ -1046,11 +1056,25 @@ interactive_load_image:
               z0 = (y + v) * factor + y_offset;
               z1 = (y + v + 1) * factor + y_offset;
               
-              int offset = (int)((z0) * image_w + q0)*4;
+              int offset;
+              switch (rotate)
+              {
+                case 90:
+                  offset = (int)((q0) * image_w + z0)*4;
 
-              if (z1 < image_h &&
-                  q1 < image_w && z0 >= 0 && q0 >= 0)
-                got_coverage = image[offset+3] > 127;
+                  if (q1 < image_h &&
+                    z1 < image_w && q0 >= 0 && z0 >= 0)
+                  got_coverage = image[offset+3] > 127;
+                  break;
+                default:
+                case 0:
+                  offset = (int)((z0) * image_w + q0)*4;
+
+                  if (z1 < image_h &&
+                    q1 < image_w && z0 >= 0 && q0 >= 0)
+                  got_coverage = image[offset+3] > 127;
+                  break;
+              }
 
               if (got_coverage)
               {
@@ -1063,7 +1087,16 @@ interactive_load_image:
                 for (q = q0; q<=q1; q++)
                   for (z = z0; z<=z1; z++)
                   {
-                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                    switch (rotate)
+                    {
+                      case 90:
+                        offset2 = offset + ((q-q0) * image_w + (z-z0))  * 4;
+                        break;
+                      case 0:
+                      default:
+                        offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                      break;
+                    }
                     dithered[0] += image[offset2 + 0];
                     dithered[1] += image[offset2 + 1];
                     dithered[2] += image[offset2 + 2];
