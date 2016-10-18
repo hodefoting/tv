@@ -97,7 +97,7 @@ void sixel_flush (void)
 #else
 int current = -1;
 int count = 0;
-int rotate = 90;
+int rotate = 0;
 
 void sixel_flush (void)
 {
@@ -1060,7 +1060,7 @@ interactive_load_image:
               switch (rotate)
               {
                 case 90:
-                  offset = (int)((q0) * image_w + z0)*4;
+                  offset = (int)((image_h-q0) * image_w + z0)*4;
 
                   if (q1 < image_h &&
                     z1 < image_w && q0 >= 0 && z0 >= 0)
@@ -1090,7 +1090,7 @@ interactive_load_image:
                     switch (rotate)
                     {
                       case 90:
-                        offset2 = offset + ((q-q0) * image_w + (z-z0))  * 4;
+                        offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
                         break;
                       case 0:
                       default:
