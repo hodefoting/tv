@@ -263,23 +263,23 @@ static int _nc_raw (void)
 float factor   = -1.0;
 float x_offset = 0.0;
 float y_offset = 0.0;
-int palcount = 16;
-int do_dither = 1;
-int grayscale = 0;
-int slideshow = 0;
-int loop = 0;
+int   palcount = 16;
+int   do_dither = 1;
+int   grayscale = 0;
+int   slideshow = 0;
+int   loop = 0;
 float delay = 4.0;
 float time_remaining = 0.0;
-int verbosity = 0;
-int desired_width =  1024;
-int desired_height = 1024;
-int image_no;
+int   verbosity = 0;
+int   desired_width =  1024;
+int   desired_height = 1024;
+int   image_no;
 unsigned char *image = NULL;
-int image_w, image_h;
+int   image_w, image_h;
 const char *path = NULL;
 int         pdf = 0;
-int zero_origin = 0;
-int interactive = 0;
+int   zero_origin = 0;
+int   interactive = 0;
 
 typedef enum {
   RENONE=0,
