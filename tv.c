@@ -85,6 +85,9 @@ void sixel_out_str (const char *str)
   sixel_out_str (tmp);\
 } while(0)
 
+int current = -1;
+int count = 0;
+int rotate = 0;
 #if 0
 int sixel_out (int sixel)
 {
@@ -95,9 +98,6 @@ void sixel_flush (void)
 {
 }
 #else
-int current = -1;
-int count = 0;
-int rotate = 0;
 
 void sixel_flush (void)
 {
@@ -1127,11 +1127,11 @@ interactive_load_image:
                     if (fb[(y+v) * outw + x] != palno)
                     {
                       fb[(y+v) * outw + x] = palno;
-#else
-                    {
 #endif
                       sixel |= (1<<v);
+#ifdef DELTA_FRAME
                     }
+#endif
                   }
                 }
                 else
@@ -1144,11 +1144,11 @@ interactive_load_image:
                    if (fb[(y+v) * outw + x] != palno)
                    {
                      fb[(y+v) * outw + x] = palno;
-#else
-                   {
 #endif
                      sixel |= (1<<v);
+#ifdef DELTA_FRAME
                    }
+#endif
                 }
               }
               else
@@ -1158,11 +1158,11 @@ interactive_load_image:
                    if (fb[(y+v) * outw + x] != palno)
                    {
                      fb[(y+v) * outw + x] = palno;
-#else
-                   {
 #endif
                      sixel |= (1<<v);
+#ifdef DELTA_FRAME
                    }
+#endif
                 }
             }
             sixel_out (sixel);
