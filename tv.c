@@ -31,11 +31,11 @@
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-//#define DELTA_FRAME 1
 
 // DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
 // starts off with background-color colored data, rather than the original data
 // of the framebuffer at the location.
+//#define DELTA_FRAME 1
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -1267,8 +1267,8 @@ void blit_sixel_pal (unsigned int        *pal,
   for (y = 0; y < outh; )
   {
     palno=0;
-    for (red   = 0; red   < red_max; red++)
-    for (blue  = 0; blue  < blue_max; blue++)
+    for (red   = 0; red   < red_max;   red++)
+    for (blue  = 0; blue  < blue_max;  blue++)
     for (green = 0; green < green_max; green++)
     {
       int setpal = 0;
@@ -1277,7 +1277,6 @@ void blit_sixel_pal (unsigned int        *pal,
       {
         int sixel = 0;
         int v;
-        int dithered[4];
         for (v = 0; v < 6; v++) // XXX: the code redithers,
                                 //      instead of dithering to
                                 //      a tempbuf and then blitting that
@@ -1285,7 +1284,7 @@ void blit_sixel_pal (unsigned int        *pal,
           {
             int got_coverage = 0;
             int offset = ((y + v) * outw + x) * 4;
-            got_coverage = 1;//rgba[offset+3] > 127;
+            got_coverage = pal[offset+3] >= 0;
 
             if (got_coverage)
               {
@@ -1297,18 +1296,17 @@ void blit_sixel_pal (unsigned int        *pal,
                       fb[(y+v) * outw + x] = palno;
 #endif
                       sixel |= (1<<v);
-      if (!setpal)
-      {
-        sixel_flush ();
-        sixel_outf ( "#%d", palno);
-        setpal = 1;
-      }
-
 #ifdef DELTA_FRAME
                     }
 #endif
               }
           }
+
+          if (sixel && !setpal)
+            {
+               sixel_outf ( "#%d", palno);
+               setpal = 1;
+            }
           sixel_out (sixel);
        }
 
