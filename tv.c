@@ -123,7 +123,6 @@ void sixel_flush (void)
   if (count == 0)
   {
     current = -1;
-    fflush(NULL);
     return;
   }
   while (count > 255) /* vt240 repeat count limit */
@@ -143,7 +142,6 @@ void sixel_flush (void)
   }
   current = -1;
   count = 0;
-  fflush(NULL);
 }
 void sixel_out (int sixel)
 {
