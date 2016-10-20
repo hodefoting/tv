@@ -12,6 +12,7 @@
 #include <linux/fb.h>
 #include <linux/vt.h>
 #include <sys/mman.h>
+#include <stdint.h>
 
 
 typedef enum {
@@ -39,6 +40,7 @@ TvOutput tv_mode = TV_ASCII;
 // test.jpg     16 mask_a -      914582
 // test.jpg     16 gray mask_a - 560668
 
+float aspect = 1.0;
 
 #define SKIP_FULL_BLANK_ROWS 1
 #define JUMPLEN 0.50
@@ -211,7 +213,6 @@ TvOutput init (int *dw, int *dh)
 
     close (fb_fd);
 
-    fprintf (stderr, "%i %i %i %i\n", *dw, *dh, fb_bpp, fb_fd);
     return TV_FB;
   }
 
@@ -230,8 +231,9 @@ TvOutput init (int *dw, int *dh)
     *dw = size.ws_col * 2;
     *dh = size.ws_row * 2;
 
-    return TV_ASCII;
+    aspect = 1.5;
     return TV_UTF8;
+    return TV_ASCII;
   }
 
   return TV_SIXEL;
@@ -840,8 +842,8 @@ void resample_image (const unsigned char *image,
         int z0;
         int z1;
 
-        z0 = (y + v) * factor + y_offset;
-        z1 = (y + v + 1) * factor + y_offset;
+        z0 = (y + v) * factor * aspect + y_offset;
+        z1 = (y + v + 1) * factor * aspect + y_offset;
               
         int offset;
         switch (rotate)
@@ -942,6 +944,58 @@ void palcount_to_levels (int palcount,
       *grayscale = 1;
     }
   }
+}
+
+static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count)
+{
+  while (count--)
+    {
+      int big = ((src[0] >> 3)) +
+                ((src[1] >> 2)<<5) +
+                ((src[2] >> 3)<<11);
+      dst[1] = big >> 8;
+      dst[0] = big & 255;
+      dst+=2;
+      src+=4;
+    }
+}
+
+static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count)
+{
+  while (count--)
+    {
+      int big = ((src[2] >> 3)) +
+                ((src[1] >> 3)<<5) +
+                ((src[0] >> 3)<<10);
+      dst[1] = big >> 8;
+      dst[0] = big & 255;
+      dst+=2;
+      src+=4;
+    }
+}
+
+static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count)
+{
+  while (count--)
+    {
+      dst[0] = ((src[0] >> 5)) +
+               ((src[1] >> 5)<<3) +
+               ((src[2] >> 6)<<6);
+      dst+=1;
+      src+=4;
+    }
+}
+
+static inline void memcpy32_24 (uint8_t *dst, const uint8_t *src, int count)
+{
+  while (count--)
+    {
+      dst[0] = src[0];
+      dst[1] = src[1];
+      dst[2] = src[2];
+      dst+=3;
+      src+=4;
+    }
 }
 
 void dither_rgba (const unsigned char *rgba,
@@ -1414,20 +1468,39 @@ interactive_load_image:
                   struct fb_fix_screeninfo finfo;
                   int fb_fd = open ("/dev/fb0", O_RDWR);
                   unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
-                  for (scan = 0; scan < outh; scan++)
-                  {
-                    unsigned char *src = rgba + outw * 4 * scan;
-                    unsigned char *dst = fb + fb_stride * scan;
-                    int x;
-                    for (x= 0; x < outw; x++)
-                    {
-                      dst[0]=src[2];
-                      dst[1]=src[1];
-                      dst[2]=src[0];
-                      dst[3]=src[3];
-                      src+=4;
-                      dst+=4;
-                    }
+
+                      for (scan = 0; scan < outh; scan++)
+                      {
+                        unsigned char *src = rgba + outw * 4 * scan;
+                        unsigned char *dst = fb + fb_stride * scan;
+                        int x;
+
+				        switch (fb_bpp)
+                        {
+                          case 32:
+                          for (x= 0; x < outw; x++)
+                          {
+                            dst[0]=src[2];
+                            dst[1]=src[1];
+                            dst[2]=src[0];
+                            dst[3]=src[3];
+                            src+=4;
+                            dst+=4;
+                          }
+                          break;
+                          case 24:
+                          memcpy32_24 (dst, src, outw);
+                          break;
+                          case 16:
+                          memcpy32_16 (dst, src, outw);
+                          break;
+                          case 15:
+                          memcpy32_15 (dst, src, outw);
+                          break;
+                          case 8:
+                          memcpy32_8 (dst, src, outw);
+                          break;
+                        }
                   }
                   munmap (fb, fb_mapped_size);
                   fflush (NULL);
