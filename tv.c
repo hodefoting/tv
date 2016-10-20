@@ -9,6 +9,14 @@
 #include <libgen.h>
 #include <sys/time.h>
 
+typedef enum {
+              TV_ASCII,
+              TV_SIXEL,
+              TV_UTF8,
+              TV_FB} TvOutput;
+
+TvOutput tv_mode = TV_ASCII;
+
 // planes
 // test.jpg     16 mask_a -      138212
 
@@ -208,7 +216,8 @@ int status_x = 1;
 #ifdef DELTA_FRAME
 int *fb = NULL;
 #endif
-void init (int *dw, int *dh)
+
+TvOutput init (int *dw, int *dh)
 {
   struct winsize size = {0,0,0,0};
   int result = ioctl (0, TIOCGWINSZ, &size);
@@ -229,6 +238,16 @@ void init (int *dw, int *dh)
   for (int i =0; i < *dw * *dh; i++)
     fb[i] = -1;
 #endif
+
+  if (*dw <=0 || *dh <=0)
+  {
+    *dw = size.ws_col;
+    *dh = size.ws_row * 2;
+
+    return TV_ASCII;
+  }
+
+  return TV_SIXEL;
 }
 
 void usage ()
@@ -589,34 +608,34 @@ Action actions[] = {
   {"[1;2B",  cmd_down_small},
   {"[1;2C",  cmd_right_small},
   {"[1;2D",  cmd_left_small},
-  {"[A",  cmd_up},
-  {"[B",  cmd_down},
-  {"[C",  cmd_right},
-  {"[D",  cmd_left},
-  {" ",     cmd_next},
-  {"",    cmd_prev},
-  {"[5~", cmd_prev},
-  {"[6~", cmd_next},
-  {"d",     cmd_do_dither},
-  {"g",     cmd_grayscale},
-  {"s",     cmd_slideshow},
-  {"v",     cmd_verbosity},
-  {"f",     cmd_zoom_fit},
-  {"F",     cmd_zoom_fill},
-  {"w",     cmd_zoom_width},
-  {"1",     cmd_zoom_1},
-  {"+",     cmd_zoom_in},
-  {"=",     cmd_zoom_in},
-  {"-",     cmd_zoom_out},
-  {"a",     cmd_zoom_in_small},
-  {"z",     cmd_zoom_out_small},
-  {"A",     cmd_zoom_in},
-  {"Z",     cmd_zoom_out},
-  {"p",     cmd_pal_up},
-  {"P",     cmd_pal_down},
-  {"q",     cmd_quit},
-  {"r",     cmd_rotate},
-  {"?",     cmd_help},
+  {"[A",     cmd_up},
+  {"[B",     cmd_down},
+  {"[C",     cmd_right},
+  {"[D",     cmd_left},
+  {" ",        cmd_next},
+  {"",       cmd_prev},
+  {"[5~",    cmd_prev},
+  {"[6~",    cmd_next},
+  {"d",        cmd_do_dither},
+  {"g",        cmd_grayscale},
+  {"s",        cmd_slideshow},
+  {"v",        cmd_verbosity},
+  {"f",        cmd_zoom_fit},
+  {"F",        cmd_zoom_fill},
+  {"w",        cmd_zoom_width},
+  {"1",        cmd_zoom_1},
+  {"+",        cmd_zoom_in},
+  {"=",        cmd_zoom_in},
+  {"-",        cmd_zoom_out},
+  {"a",        cmd_zoom_in_small},
+  {"z",        cmd_zoom_out_small},
+  {"A",        cmd_zoom_in},
+  {"Z",        cmd_zoom_out},
+  {"p",        cmd_pal_up},
+  {"P",        cmd_pal_down},
+  {"q",        cmd_quit},
+  {"r",        cmd_rotate},
+  {"?",        cmd_help},
   {NULL, NULL}
 };
 
@@ -631,7 +650,6 @@ static int stdin_got_data (void)
    tv.tv_sec = 0; tv.tv_usec = 0;
    return select (1, &rfds, NULL, NULL, &tv) == 1;
 }
-
 
 EvReaction handle_input (void)
 {
@@ -676,7 +694,6 @@ const char *prepare_pdf_page (const char *path, int page_no)
   system (command);
   return "/tmp/sxv-pdf.png";
 }
-
 
 void print_status (void)
 {
@@ -807,8 +824,10 @@ void parse_args (int argc, char **argv)
   }
 }
 
-
-unsigned char *jpeg_load(const char *filename, int *width, int *height, int *stride)
+unsigned char *jpeg_load (const char *filename,
+                          int        *width,
+                          int        *height,
+                          int        *stride)
 { /* 96% of this code is the libjpeg example decoding code */
   unsigned char *retbuf = NULL;
   struct jpeg_decompress_struct cinfo;
@@ -855,7 +874,11 @@ unsigned char *jpeg_load(const char *filename, int *width, int *height, int *str
   return retbuf;
 }
 
-unsigned char *image_load (const char *path, int *width, int *height, int *stride)
+unsigned char *
+image_load (const char *path,
+            int        *width,
+            int        *height,
+            int        *stride)
 {
   if (strstr (path, ".jpg") ||
       strstr (path, ".jpeg") ||
@@ -1326,6 +1349,7 @@ interactive_load_image:
       cmd_next ();
       goto interactive_load_image;
     }
+    tv_mode = init (&desired_width, &desired_height);
 
     if (factor < 0)
     {
@@ -1343,20 +1367,18 @@ interactive_load_image:
       return -1;
     }
 
-    init (&desired_width, &desired_height);
     interactive_again:
     if (0){}
 
     // image = rescale_image (image, &w, &h, desired_width, desired_height);
     int outw = desired_width;
     int outh = desired_height;
-
                
+    if (interactive)
+      print_status ();
+
     {
       unsigned char *rgba = calloc (outw * 4 * outh, 1);
-      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-      if (interactive)
-        print_status ();
 
       resample_image (image, 
                       rgba,
@@ -1366,6 +1388,54 @@ interactive_load_image:
                       y_offset,
                       factor);
 
+      switch (tv_mode)
+      {
+        case TV_ASCII:
+                {
+      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+      dither_rgba (rgba,
+                   pal,
+                   outw * 4,
+                   outw,
+                   outh,
+                   1,
+                   2,
+                   0
+#ifdef DELTA_FRAME
+                  ,fb
+#endif
+                  );
+      if (!stdin_got_data ())
+      {
+        int x, y;
+        for (y = 0; y < outh-2; y+=2)
+        {
+          for (x = 0; x < outw; x++)
+          {
+            int o = y * outw + x;
+            char c=' ';
+            if (pal[o] != 0)
+            {
+              c = '^';
+              if (pal[o+outw] != 0)
+                c = '8';
+            }
+            else
+            {
+              if (pal[o+outw] != 0)
+                c = 'o';
+            }
+            sixel_outf ("%c", c);
+          }
+          sixel_outf ("\n");
+        }
+      }
+      free (pal);
+                }
+                break;
+        case TV_SIXEL:
+                {
+      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
       dither_rgba (rgba,
                    pal,
                    outw * 4,
@@ -1392,8 +1462,11 @@ interactive_load_image:
                   ,fb
 #endif
                   );
-      free (rgba);
       free (pal);
+                }
+                break;
+      }
+      free (rgba);
 
       if (interactive)
       {
@@ -1421,7 +1494,6 @@ interactive_load_image:
             break;
         }
       }
-
     }
     free (image);
     image = NULL;
