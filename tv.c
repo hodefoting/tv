@@ -241,10 +241,11 @@ TvOutput init (int *dw, int *dh)
 
   if (*dw <=0 || *dh <=0)
   {
-    *dw = size.ws_col;
+    *dw = size.ws_col * 2;
     *dh = size.ws_row * 2;
 
     return TV_ASCII;
+    return TV_UTF8;
   }
 
   return TV_SIXEL;
@@ -923,7 +924,7 @@ void resample_image (const unsigned char *image,
         int v = 0;
         int q0 = x     * factor + x_offset;
         int q1 = (x+1) * factor + x_offset;
-        int dithered[4] = {0,0,0,0};
+        int accumulated[4] = {0,0,0,0};
         int got_coverage = 0;
         int z0;
         int z1;
@@ -949,10 +950,10 @@ void resample_image (const unsigned char *image,
                 got_coverage = image[offset+3]>127;
               break;
         }
-        dithered[0] = 0;
-        dithered[1] = 0;
-        dithered[2] = 0;
-        dithered[3] = 0;
+        accumulated[0] = 0;
+        accumulated[1] = 0;
+        accumulated[2] = 0;
+        accumulated[3] = 0;
 
         if (got_coverage)
           {
@@ -972,19 +973,19 @@ void resample_image (const unsigned char *image,
                       offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
                       break;
                   }
-                  dithered[0] += image[offset2 + 0];
-                  dithered[1] += image[offset2 + 1];
-                  dithered[2] += image[offset2 + 2];
-                  dithered[3] += image[offset2 + 3];
+                  accumulated[0] += image[offset2 + 0];
+                  accumulated[1] += image[offset2 + 1];
+                  accumulated[2] += image[offset2 + 2];
+                  accumulated[3] += image[offset2 + 3];
                   c++;
                 }
-                dithered[0] /= c;
-                dithered[1] /= c;
-                dithered[2] /= c;
-                dithered[3] /= c;
+                accumulated[0] /= c;
+                accumulated[1] /= c;
+                accumulated[2] /= c;
+                accumulated[3] /= c;
           }
        for (int c = 0; c < 4; c++)
-         rgba[i * 4 + c] = dithered[c]>255?255:dithered[c]<0?:dithered[c];
+         rgba[i * 4 + c] = accumulated[c]>255?255:accumulated[c]<0?:accumulated[c];
        i++;
      }
   }
@@ -1073,61 +1074,59 @@ void dither_rgba (const unsigned char *rgba,
       for (x = 0; x < outw; x ++)
       {
         int dithered[4];
+        int got_coverage = 0;
+        int offset = (y) * outw * 4 + x*4;
+        got_coverage = rgba[offset+3] > 127;
+
+        if (got_coverage)
           {
-            int got_coverage = 0;
-            int offset = (y) * outw * 4 + x*4;
-            got_coverage = rgba[offset+3] > 127;
+            dithered[0] = rgba[offset+0];
+            dithered[1] = rgba[offset+1];
+            dithered[2] = rgba[offset+2];
+            dithered[3] = rgba[offset+3];
+            if (do_dither)
+            {
+              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
+              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
+              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
+            }
+            else
+            {
+              dithered[0] += 0.5 * 255/(red_levels-1);
+              dithered[1] += 0.5 * 255/(green_levels-1);
+              dithered[2] += 0.5 * 255/(blue_levels-1);
+            }
 
-            if (got_coverage)
-              {
-                dithered[0] = rgba[offset+0];
-                dithered[1] = rgba[offset+1];
-                dithered[2] = rgba[offset+2];
-                dithered[3] = rgba[offset+3];
-                if (do_dither)
-                {
-                  dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
-                  dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
-                  dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
-                }
-                else
-                {
-                  dithered[0] += 0.5 * 255/(red_levels-1);
-                  dithered[1] += 0.5 * 255/(green_levels-1);
-                  dithered[2] += 0.5 * 255/(blue_levels-1);
-                }
-
-                if (grayscale)
-                {
-                  dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
-                  pal[offset/4] = (dithered[1] * (green_levels -1) / 255);
-                }
-             else
-             {
-               if (dithered[0] > 255)
+            if (grayscale)
+            {
+              dithered[1] = (dithered[0] + dithered[1] + dithered[2])/3;
+              pal[offset/4] = (dithered[1] * (green_levels -1) / 255);
+            }
+            else
+            {
+              if (dithered[0] > 255)
                 dithered[0] = 255;
-               if (dithered[1] > 255)
+              if (dithered[1] > 255)
                 dithered[1] = 255;
-               if (dithered[2] > 255)
+              if (dithered[2] > 255)
                 dithered[2] = 255;
 
-               if (dithered[0] < 0)
+              if (dithered[0] < 0)
                 dithered[0] = 0;
-               if (dithered[1] < 0)
+              if (dithered[1] < 0)
                 dithered[1] = 0;
-               if (dithered[2] < 0)
+              if (dithered[2] < 0)
                 dithered[2] = 0;
 
-               pal[offset/4] = 0 + 
-                  (dithered[0] * (red_levels-1)   / 255) * blue_levels * green_levels+
-                  (dithered[2] * (blue_levels-1)  / 255) * green_levels + 
-                  (dithered[1] * (green_levels-1)  / 255);
-             }
-           }
+             pal[offset/4] = 0 + 
+                (dithered[0] * (red_levels-1)   / 255) * blue_levels * green_levels+
+                (dithered[2] * (blue_levels-1)  / 255) * green_levels + 
+                (dithered[1] * (green_levels-1)  / 255);
+            }
+          }
          else if (red == green && green == blue && blue == 0)
-           {
+          {
              pal[offset/4] = 0;
-           }
           }
        }
 
@@ -1401,31 +1400,95 @@ interactive_load_image:
                    1,
                    2,
                    0
-#ifdef DELTA_FRAME
-                  ,fb
-#endif
                   );
       if (!stdin_got_data ())
       {
         int x, y;
         for (y = 0; y < outh-2; y+=2)
         {
-          for (x = 0; x < outw; x++)
+          for (x = 0; x < outw; x+=2)
           {
+            int bitmask = 0;
             int o = y * outw + x;
-            char c=' ';
-            if (pal[o] != 0)
+
+            if (pal[o]!=0)        bitmask |= (1<<0);    //1
+            if (pal[o+1]!=0)      bitmask |= (1<<1);  //2
+            if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
+            if (pal[o+outw+1]!=0) bitmask |= (1<<3);  //8
+
+            switch (bitmask)
             {
-              c = '^';
-              if (pal[o+outw] != 0)
-                c = '8';
+                case 0: sixel_outf (" ");  break;
+                case 1: sixel_outf ("`");  break;
+                case 2: sixel_outf ("'");  break;
+                case 3: sixel_outf ("\""); break;
+                case 4: sixel_outf (",");  break;
+                case 5: sixel_outf ("[");  break;
+                case 6: sixel_outf ("/");  break;
+                case 7: sixel_outf ("P");  break;
+                case 8: sixel_outf (".");  break;
+                case 9: sixel_outf ("\\"); break;
+                case 10: sixel_outf ("]"); break;
+                case 11: sixel_outf ("?"); break;
+                case 12: sixel_outf ("o"); break;
+                case 13: sixel_outf ("b"); break;
+                case 14: sixel_outf ("d"); break;
+                case 15: sixel_outf ("H"); break;
+                default: sixel_outf ("M"); break;
             }
-            else
+          }
+          sixel_outf ("\n");
+        }
+      }
+      free (pal);
+                }
+                break;
+        case TV_UTF8:
+                {
+      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+      dither_rgba (rgba,
+                   pal,
+                   outw * 4,
+                   outw,
+                   outh,
+                   1,
+                   2,
+                   0
+                  );
+      if (!stdin_got_data ())
+      {
+        int x, y;
+        for (y = 0; y < outh-2; y+=2)
+        {
+          for (x = 0; x < outw; x+=2)
+          {
+            int bitmask = 0;
+            int o = y * outw + x;
+
+            if (pal[o]!=0)        bitmask |= (1<<0); //1
+            if (pal[o+1]!=0)      bitmask |= (1<<1); //2
+            if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
+            if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
+
+            switch (bitmask)
             {
-              if (pal[o+outw] != 0)
-                c = 'o';
+              case 0:  sixel_outf (" "); break;
+              case 1:  sixel_outf ("▘"); break;
+              case 2:  sixel_outf ("▝"); break;
+              case 3:  sixel_outf ("▀"); break;
+              case 4:  sixel_outf ("▖"); break;
+              case 5:  sixel_outf ("▌"); break;
+              case 6:  sixel_outf ("▞"); break;
+              case 7:  sixel_outf ("▛"); break;
+              case 8:  sixel_outf ("▗"); break;
+              case 9:  sixel_outf ("▚"); break;
+              case 10: sixel_outf ("▐"); break;
+              case 11: sixel_outf ("▜"); break;
+              case 12: sixel_outf ("▄"); break;
+              case 13: sixel_outf ("▙"); break;
+              case 14: sixel_outf ("▟"); break;
+              case 15: sixel_outf ("█"); break;
             }
-            sixel_outf ("%c", c);
           }
           sixel_outf ("\n");
         }
@@ -1444,9 +1507,6 @@ interactive_load_image:
                    grayscale,
                    palcount,
                    0
-#ifdef DELTA_FRAME
-                  ,fb
-#endif
                   );
       if (!stdin_got_data ())
       blit_sixel_pal (pal,
