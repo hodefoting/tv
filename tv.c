@@ -620,7 +620,7 @@ Action actions[] = {
   {NULL, NULL}
 };
 
-EvReaction handle_input (void)
+static int stdin_got_data (void)
 {
    struct timeval tv;
    int retval;
@@ -628,9 +628,15 @@ EvReaction handle_input (void)
    fd_set rfds;
    FD_ZERO (&rfds);
    FD_SET (STDIN_FILENO, &rfds);
-   tv.tv_sec = 0; tv.tv_usec = 1;
-   retval = select (1, &rfds, NULL, NULL, &tv);
-   if (retval == 1)
+   tv.tv_sec = 0; tv.tv_usec = 0;
+   return select (1, &rfds, NULL, NULL, &tv) == 1;
+}
+
+
+EvReaction handle_input (void)
+{
+   fflush (NULL);
+   if (stdin_got_data ())
    {
      char buf[10];
      int length = 0;
@@ -1117,100 +1123,6 @@ void dither_rgba (const unsigned char *rgba,
   }
 }
 
-/* line by line single scan-through implementation */
-void blit_sixel_pal2 (unsigned int        *pal,
-                     int                  rowstride,
-                     int                  x0,
-                     int                  y0,
-                     int                  outw,
-                     int                  outh,
-                     int                  grayscale,
-                     int                  palcount,
-                     int                  transparency
-#ifdef DELTA_FRAME
-                 ,
-                      int                 *fb
-#endif
-                 )
-{
-  int red, green, blue;
-  int red_max, green_max, blue_max;
-  int red_levels   = 2;
-  int green_levels = 4;
-  int blue_levels  = 2;
-  palcount_to_levels (palcount, &red_levels, &green_levels, &blue_levels, &grayscale);
-
-  red_max   = red_levels;
-  green_max = green_levels;
-  blue_max  = blue_levels;
-
-  if (grayscale)
-    {
-      red_max = 1;
-      blue_max = 1;
-      red_levels = green_levels = blue_levels = green_max = palcount;
-    }
-  int x, y;
-
-  term_home ();
-  sixel_start ();
-
-  int palno = 0;
-  for (red   = 0; red   < red_max; red++)
-  for (blue  = 0; blue  < blue_max; blue++)
-  for (green = 0; green < green_max; green++)
-  {
-    if (grayscale)
-      sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(green_levels-1),
-                                     green * 100/(green_levels-1),
-                                     green * 100/(green_levels-1));
-    else  
-      sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(red_levels-1),
-                                           green * 100/(green_levels-1),
-                                           blue * 100/(blue_levels-1));
-    palno++;
-  }
-  int curpal = 0;
-  sixel_outf ( "#%d", curpal);
-  for (y = 0; y < outh; )
-  {
-    {
-      for (int v = 0; v < 6; v++)
-      {
-      for (x = 0; x < outw; x ++)
-      {
-        int sixel = 0;
-          {
-            int got_coverage = 0;
-            int offset = (y + v) * outw * 4 + x*4;
-            got_coverage = 1;//rgba[offset+3] > 127;
-#ifdef DELTA_FRAME
-            if (got_coverage && fb[offset/4] == curpal)
-              got_coverage = 0;
-#endif
-
-            if (got_coverage)
-              {
-                if (curpal != pal[offset/4])
-                {
-                  curpal = pal[offset/4];
-                  sixel_flush ();
-                  sixel_outf ( "#%d", curpal);
-                }
-                sixel |= (1<<v);
-              }
-          }
-          sixel_out (sixel);
-       }
-       sixel_cr ();
-       }
-     }
-     sixel_nl ();
-     y += 6;
-  }
-  sixel_end ();
-}
-
 void blit_sixel_pal (unsigned int        *pal,
                      int                  rowstride,
                      int                  x0,
@@ -1329,6 +1241,12 @@ void blit_sixel_pal (unsigned int        *pal,
      }
      sixel_nl ();
      y += 6;
+
+     if (stdin_got_data())
+     {
+       sixel_end ();
+       return;
+     }
   }
   sixel_end ();
 }
@@ -1460,6 +1378,7 @@ interactive_load_image:
                   ,fb
 #endif
                   );
+      if (!stdin_got_data ())
       blit_sixel_pal (pal,
                   outw * 4,
                   0,
