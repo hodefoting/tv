@@ -8,6 +8,11 @@
 #include <termios.h>
 #include <libgen.h>
 #include <sys/time.h>
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <linux/vt.h>
+#include <sys/mman.h>
+
 
 typedef enum {
               TV_ASCII,
@@ -44,54 +49,6 @@ TvOutput tv_mode = TV_ASCII;
 // starts off with background-color colored data, rather than the original data
 // of the framebuffer at the location.
 //#define DELTA_FRAME 1
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#include <jpeglib.h>
-#include <png.h>
-
-unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
-  FILE *fp = fopen(filename, "rb");
-  unsigned char ** scanlines;
-  unsigned char *ret_buf = NULL;
-  int i;
-  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,
-                                           NULL, NULL, NULL);
-  if(!png)
-    return NULL;
-
-  png_infop info = png_create_info_struct(png);
-  if(!info)
-    return NULL;
-
-  if(setjmp (png_jmpbuf (png)))
-    return NULL;
-
-  png_init_io (png, fp);
-  png_read_info(png, info);
-  *rw = png_get_image_width (png, info);
-  *rh = png_get_image_height (png, info);
-  if (rs) *rs = png_get_image_width (png, info) * 4;
-
-  png_set_gray_to_rgb (png);
-  png_set_strip_16 (png);
-  png_set_palette_to_rgb (png);
-  png_set_tRNS_to_alpha (png);
-  png_set_expand_gray_1_2_4_to_8 (png);
-  png_set_filler (png, 0xFF, PNG_FILLER_AFTER);
-
-  png_read_update_info (png, info);
-
-  ret_buf = malloc(*rw * *rh * 4);
-  scanlines = (png_bytep*)malloc(sizeof(png_bytep) * *rh);
-  for(i = 0; i < *rh; i++)
-    scanlines[i] = (png_byte*)&ret_buf[*rw * 4 * i];
-  png_read_image(png, scanlines);
-  free (scanlines);
-  png_destroy_read_struct (&png, &info, NULL);
-  fclose(fp);
-  return ret_buf;
-}
 
 void sixel_out_char (int ch)
 {
@@ -217,6 +174,10 @@ int status_x = 1;
 int *fb = NULL;
 #endif
 
+int fb_bpp = 1;
+int fb_mapped_size = 1;
+int fb_stride = 1;
+
 TvOutput init (int *dw, int *dh)
 {
   struct winsize size = {0,0,0,0};
@@ -231,6 +192,29 @@ TvOutput init (int *dw, int *dh)
     *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
     status_y = size.ws_row;
   }
+
+  if (!getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux"))
+  {
+    struct fb_var_screeninfo vinfo;
+    struct fb_fix_screeninfo finfo;
+    int fb_fd = open ("/dev/fb0", O_RDWR);
+
+    ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
+    ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
+
+    *dw = vinfo.xres;
+    *dh = vinfo.yres;
+
+    fb_bpp = vinfo.bits_per_pixel;
+    fb_stride = finfo.line_length;
+    fb_mapped_size = finfo.smem_len;
+
+    close (fb_fd);
+
+    fprintf (stderr, "%i %i %i %i\n", *dw, *dh, fb_bpp, fb_fd);
+    return TV_FB;
+  }
+
 #ifdef DELTA_FRAME
   if (fb)
     free (fb);
@@ -238,6 +222,8 @@ TvOutput init (int *dw, int *dh)
   for (int i =0; i < *dw * *dh; i++)
     fb[i] = -1;
 #endif
+
+
 
   if (*dw <=0 || *dh <=0)
   {
@@ -648,7 +634,7 @@ static int stdin_got_data (void)
    fd_set rfds;
    FD_ZERO (&rfds);
    FD_SET (STDIN_FILENO, &rfds);
-   tv.tv_sec = 0; tv.tv_usec = 0;
+   tv.tv_sec = 0; tv.tv_usec = 1;
    return select (1, &rfds, NULL, NULL, &tv) == 1;
 }
 
@@ -824,86 +810,11 @@ void parse_args (int argc, char **argv)
     }
   }
 }
-
-unsigned char *jpeg_load (const char *filename,
-                          int        *width,
-                          int        *height,
-                          int        *stride)
-{ /* 96% of this code is the libjpeg example decoding code */
-  unsigned char *retbuf = NULL;
-  struct jpeg_decompress_struct cinfo;
-  FILE * infile;
-  JSAMPARRAY buffer;
-  int row_stride;
-  struct jpeg_error_mgr pub;
-  if ((infile = fopen(filename, "rb")) == NULL) {
-    fprintf(stderr, "can't open %s\n", filename);
-    return 0;
-  }
-  cinfo.err = jpeg_std_error(&pub);
-  jpeg_create_decompress(&cinfo);
-  cinfo.quantize_colors = FALSE;
-  cinfo.out_color_space = JCS_RGB;
-  jpeg_stdio_src(&cinfo, infile);
-  (void) jpeg_read_header(&cinfo, TRUE);
-  (void) jpeg_start_decompress(&cinfo);
-  row_stride = cinfo.output_width * cinfo.output_components;
-  buffer = (*cinfo.mem->alloc_sarray)
-		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
-  /* XXX: need a bit more, jpeg lib overwrites by some bytes.. */
-  retbuf = malloc (cinfo.output_width * (cinfo.output_height + 1) * 4);
-  *width = cinfo.output_width;
-  *height = cinfo.output_height;
-  if (stride) *stride = cinfo.output_width * 4;
-  while (cinfo.output_scanline < cinfo.output_height) {
-	int x;
-    (void) jpeg_read_scanlines(&cinfo, buffer, 1);
-    for (x = 0; x < cinfo.output_width; x++)
-      {
-         int r = buffer[0][x * 3 + 0];
-         int g = buffer[0][x * 3 + 1];
-         int b = buffer[0][x * 3 + 2];
-         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 0] = r;
-         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 1] = g;
-         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 2] = b;
-         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 3] = 255;
-      }
-  }
-  (void) jpeg_finish_decompress(&cinfo);
-  jpeg_destroy_decompress(&cinfo);
-  fclose(infile);
-  return retbuf;
-}
-
 unsigned char *
 image_load (const char *path,
             int        *width,
             int        *height,
-            int        *stride)
-{
-  if (strstr (path, ".jpg") ||
-      strstr (path, ".jpeg") ||
-      strstr (path, ".JPG"))
-  {
-	 return jpeg_load (path, width, height, stride);
-  }
-
-  if (strstr (path, ".png") ||
-      strstr (path, ".PNG"))
-  {
-	 return png_load (path, width, height, stride);
-  }
-
-  if (strstr (path, ".tga") ||
-      strstr (path, ".pgm") ||
-      strstr (path, ".gif") ||
-      strstr (path, ".GIF") ||
-      strstr (path, ".tiff") ||
-      strstr (path, ".bmp") ||
-      strstr (path, ".tiff"))
-    return stbi_load (path, width, height, stride, 4);
-  return NULL;
-}
+            int        *stride);
 
 void resample_image (const unsigned char *image,
                      unsigned char *rgba,
@@ -1411,10 +1322,10 @@ interactive_load_image:
             int bitmask = 0;
             int o = y * outw + x;
 
-            if (pal[o]!=0)        bitmask |= (1<<0);    //1
-            if (pal[o+1]!=0)      bitmask |= (1<<1);  //2
+            if (pal[o]!=0)        bitmask |= (1<<0); //1
+            if (pal[o+1]!=0)      bitmask |= (1<<1); //2
             if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
-            if (pal[o+outw+1]!=0) bitmask |= (1<<3);  //8
+            if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
 
             switch (bitmask)
             {
@@ -1496,6 +1407,33 @@ interactive_load_image:
       free (pal);
                 }
                 break;
+        case TV_FB:
+                {
+                  int scan;
+                  struct fb_var_screeninfo vinfo;
+                  struct fb_fix_screeninfo finfo;
+                  int fb_fd = open ("/dev/fb0", O_RDWR);
+                  unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+                  for (scan = 0; scan < outh; scan++)
+                  {
+                    unsigned char *src = rgba + outw * 4 * scan;
+                    unsigned char *dst = fb + fb_stride * scan;
+                    int x;
+                    for (x= 0; x < outw; x++)
+                    {
+                      dst[0]=src[2];
+                      dst[1]=src[1];
+                      dst[2]=src[0];
+                      dst[3]=src[3];
+                      src+=4;
+                      dst+=4;
+                    }
+                  }
+                  munmap (fb, fb_mapped_size);
+                  fflush (NULL);
+                  close (fb_fd);
+                }
+                break;
         case TV_SIXEL:
                 {
       unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
@@ -1566,4 +1504,134 @@ interactive_load_image:
   }
   sixel_outf ("\r");
   return 0;
+}
+
+#include <jpeglib.h>
+
+unsigned char *jpeg_load (const char *filename,
+                          int        *width,
+                          int        *height,
+                          int        *stride)
+{ /* 96% of this code is the libjpeg example decoding code */
+  unsigned char *retbuf = NULL;
+  struct jpeg_decompress_struct cinfo;
+  FILE * infile;
+  JSAMPARRAY buffer;
+  int row_stride;
+  struct jpeg_error_mgr pub;
+  if ((infile = fopen(filename, "rb")) == NULL) {
+    fprintf(stderr, "can't open %s\n", filename);
+    return 0;
+  }
+  cinfo.err = jpeg_std_error(&pub);
+  jpeg_create_decompress(&cinfo);
+  cinfo.quantize_colors = FALSE;
+  cinfo.out_color_space = JCS_RGB;
+  jpeg_stdio_src(&cinfo, infile);
+  (void) jpeg_read_header(&cinfo, TRUE);
+  (void) jpeg_start_decompress(&cinfo);
+  row_stride = cinfo.output_width * cinfo.output_components;
+  buffer = (*cinfo.mem->alloc_sarray)
+		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+  /* XXX: need a bit more, jpeg lib overwrites by some bytes.. */
+  retbuf = malloc (cinfo.output_width * (cinfo.output_height + 1) * 4);
+  *width = cinfo.output_width;
+  *height = cinfo.output_height;
+  if (stride) *stride = cinfo.output_width * 4;
+  while (cinfo.output_scanline < cinfo.output_height) {
+	int x;
+    (void) jpeg_read_scanlines(&cinfo, buffer, 1);
+    for (x = 0; x < cinfo.output_width; x++)
+      {
+         int r = buffer[0][x * 3 + 0];
+         int g = buffer[0][x * 3 + 1];
+         int b = buffer[0][x * 3 + 2];
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 0] = r;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 1] = g;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 2] = b;
+         retbuf[(cinfo.output_scanline * cinfo.output_width + x) * 4 + 3] = 255;
+      }
+  }
+  (void) jpeg_finish_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);
+  fclose(infile);
+  return retbuf;
+}
+
+#include <png.h>
+
+unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
+  FILE *fp = fopen(filename, "rb");
+  unsigned char ** scanlines;
+  unsigned char *ret_buf = NULL;
+  int i;
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+                                           NULL, NULL, NULL);
+  if(!png)
+    return NULL;
+
+  png_infop info = png_create_info_struct(png);
+  if(!info)
+    return NULL;
+
+  if(setjmp (png_jmpbuf (png)))
+    return NULL;
+
+  png_init_io (png, fp);
+  png_read_info(png, info);
+  *rw = png_get_image_width (png, info);
+  *rh = png_get_image_height (png, info);
+  if (rs) *rs = png_get_image_width (png, info) * 4;
+
+  png_set_gray_to_rgb (png);
+  png_set_strip_16 (png);
+  png_set_palette_to_rgb (png);
+  png_set_tRNS_to_alpha (png);
+  png_set_expand_gray_1_2_4_to_8 (png);
+  png_set_filler (png, 0xFF, PNG_FILLER_AFTER);
+
+  png_read_update_info (png, info);
+
+  ret_buf = malloc(*rw * *rh * 4);
+  scanlines = (png_bytep*)malloc(sizeof(png_bytep) * *rh);
+  for(i = 0; i < *rh; i++)
+    scanlines[i] = (png_byte*)&ret_buf[*rw * 4 * i];
+  png_read_image(png, scanlines);
+  free (scanlines);
+  png_destroy_read_struct (&png, &info, NULL);
+  fclose(fp);
+  return ret_buf;
+}
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+unsigned char *
+image_load (const char *path,
+            int        *width,
+            int        *height,
+            int        *stride)
+{
+  if (strstr (path, ".jpg") ||
+      strstr (path, ".jpeg") ||
+      strstr (path, ".JPG"))
+  {
+	 return jpeg_load (path, width, height, stride);
+  }
+
+  if (strstr (path, ".png") ||
+      strstr (path, ".PNG"))
+  {
+	 return png_load (path, width, height, stride);
+  }
+
+  if (strstr (path, ".tga") ||
+      strstr (path, ".pgm") ||
+      strstr (path, ".gif") ||
+      strstr (path, ".GIF") ||
+      strstr (path, ".tiff") ||
+      strstr (path, ".bmp") ||
+      strstr (path, ".tiff"))
+    return stbi_load (path, width, height, stride, 4);
+  return NULL;
 }
