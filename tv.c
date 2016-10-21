@@ -14,31 +14,17 @@
 #include <sys/mman.h>
 #include <stdint.h>
 
+#define HAVE_JPEG
+#define HAVE_PNG
 
 typedef enum {
+              TV_AUTO,
               TV_ASCII,
               TV_SIXEL,
               TV_UTF8,
               TV_FB} TvOutput;
 
-TvOutput tv_mode = TV_ASCII;
-
-// planes
-// test.jpg     16 mask_a -      138212
-
-// planes
-// test.jpg    256 mask_x -      658661
-// test.jpg    128 mask_x -      521165
-// test.jpg     64 mask_x -      431034
-// test.jpg     16 mask_x -      327394
-// test.jpg     16 gray mask_x - 202550
-
-// scanline by scanline, chunky
-// test.jpg    256 mask_a -     1301054
-// test.jpg    128 mask_a -     1164021
-// test.jpg     64 mask_a -     1060852
-// test.jpg     16 mask_a -      914582
-// test.jpg     16 gray mask_a - 560668
+TvOutput tv_mode = TV_AUTO;
 
 float aspect = 1.0;
 
@@ -195,7 +181,8 @@ TvOutput init (int *dw, int *dh)
     status_y = size.ws_row;
   }
 
-  if (!getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux"))
+  if (tv_mode == TV_FB ||
+      !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux"))
   {
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
@@ -224,16 +211,16 @@ TvOutput init (int *dw, int *dh)
     fb[i] = -1;
 #endif
 
-
-
-  if (*dw <=0 || *dh <=0)
+  if (tv_mode == TV_ASCII || tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
   {
     *dw = size.ws_col * 2;
     *dh = size.ws_row * 2;
 
-    aspect = 1.5;
-    return TV_UTF8;
+    aspect = 1.8;
+    if (tv_mode != TV_AUTO)
+      return tv_mode;
     return TV_ASCII;
+    return TV_UTF8;
   }
 
   return TV_SIXEL;
@@ -247,6 +234,7 @@ void usage ()
   printf ("  -w <int>width in pixels (default terminal width)\n");
   printf ("  -h <int>height in pixels (default terminal iheight)\n");
   printf ("  -o      reset cursor to 0,0 after each drawing\n");
+  printf ("  -m <ascii|utf8|fb|sixel>\n");
   printf ("  -v      be verbose\n");
   printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
   printf ("  -s      slideshow mode\n");
@@ -687,7 +675,7 @@ const char *prepare_pdf_page (const char *path, int page_no)
 void print_status (void)
 {
   sixel_outf ( "[%d;%dH[2K", status_y, status_x);
-  sixel_outf ("                                      \r");
+  //sixel_outf ("                                      \r");
   if (message)
   {
     sixel_outf ("%s", message);
@@ -770,6 +758,26 @@ void parse_args (int argc, char **argv)
       if (!argv[x+1])
         exit (-1);
       y_offset = strtod (argv[x+1], NULL);
+      x++;
+    }
+    else if (!strcmp (argv[x], "-m"))
+    {
+      if (!argv[x+1])
+        exit (-1);
+
+      if (!strcmp (argv[x+1], "ascii"))
+        tv_mode = TV_ASCII;
+      else if (!strcmp (argv[x+1], "utf8"))
+        tv_mode = TV_UTF8;
+      else if (!strcmp (argv[x+1], "sixel"))
+        tv_mode = TV_SIXEL;
+      else if (!strcmp (argv[x+1], "fb"))
+        tv_mode = TV_FB;
+      else
+      {
+        fprintf (stderr, "invalid argument for -m, '%s' only know of ascii, utf8, sixel and fb\n", argv[x+1]);
+        exit(-2);
+      }
       x++;
     }
     else if (!strcmp (argv[x], "-p"))
@@ -1579,6 +1587,8 @@ interactive_load_image:
   return 0;
 }
 
+#ifdef HAVE_JPEG
+
 #include <jpeglib.h>
 
 unsigned char *jpeg_load (const char *filename,
@@ -1630,7 +1640,9 @@ unsigned char *jpeg_load (const char *filename,
   fclose(infile);
   return retbuf;
 }
+#endif
 
+#ifdef HAVE_PNG
 #include <png.h>
 
 unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
@@ -1675,6 +1687,7 @@ unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
   fclose(fp);
   return ret_buf;
 }
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -1685,18 +1698,22 @@ image_load (const char *path,
             int        *height,
             int        *stride)
 {
+#ifdef HAVE_JPEG
   if (strstr (path, ".jpg") ||
       strstr (path, ".jpeg") ||
       strstr (path, ".JPG"))
   {
 	 return jpeg_load (path, width, height, stride);
   }
+#endif
 
+#ifdef HAVE_PNG
   if (strstr (path, ".png") ||
       strstr (path, ".PNG"))
   {
 	 return png_load (path, width, height, stride);
   }
+#endif
 
   if (strstr (path, ".tga") ||
       strstr (path, ".pgm") ||
@@ -1704,7 +1721,12 @@ image_load (const char *path,
       strstr (path, ".GIF") ||
       strstr (path, ".tiff") ||
       strstr (path, ".bmp") ||
-      strstr (path, ".tiff"))
+      strstr (path, ".tiff") ||
+      strstr (path, ".png") ||
+      strstr (path, ".PNG") ||
+      strstr (path, ".jpg") ||
+      strstr (path, ".jpeg") ||
+      strstr (path, ".JPG"))
     return stbi_load (path, width, height, stride, 4);
   return NULL;
 }
