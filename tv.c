@@ -129,7 +129,7 @@ void sixel_end ()
 
 void sixel_start ()
 {
-  sixel_out_str ("[?80h");
+  //sixel_out_str ("[?80h");
   sixel_out_str ( "P9;0;q");
 }
 
@@ -166,6 +166,9 @@ int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
 
+
+int sixel_is_supported (void);
+
 TvOutput init (int *dw, int *dh)
 {
   struct winsize size = {0,0,0,0};
@@ -180,6 +183,9 @@ TvOutput init (int *dw, int *dh)
     *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
     status_y = size.ws_row;
   }
+
+  if (sixel_is_supported ())
+    return TV_SIXEL;
 
   if (tv_mode == TV_FB ||
       !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux"))
@@ -264,23 +270,27 @@ sixel_at_exit (void)
 static int _nc_raw (void)
 {
   struct termios raw;
-  if (!isatty (STDIN_FILENO))
-    return -1;
+  //if (!isatty (STDIN_FILENO))
+  //  return -1;
   if (!atexit_registered)
     {
       atexit (sixel_at_exit);
       atexit_registered = 1;
     }
-  if (tcgetattr (STDIN_FILENO, &orig_attr) == -1)
-    return -1;
+  //if (tcgetattr (STDIN_FILENO, &orig_attr) == -1)
+  //  return -1;
+  tcgetattr (STDIN_FILENO, &orig_attr);
   raw = orig_attr;  /* modify the original mode */
-  raw.c_lflag &= ~(ECHO | ICANON);
+  raw.c_lflag &= ~(ECHO );
+  raw.c_lflag &= ~(ICANON );
   raw.c_cc[VMIN] = 1; raw.c_cc[VTIME] = 0; /* 1 byte, no timer */
-  if (tcsetattr (STDIN_FILENO, TCSAFLUSH, &raw) < 0)
-    return -1;
+  //if (tcsetattr (STDIN_FILENO, TCSANOW, &raw) < 0)
+  //  return -1;
+  tcsetattr (STDIN_FILENO, TCSANOW, &raw);
   nc_is_raw = 1;
-  tcdrain(STDIN_FILENO);
-  tcflush(STDIN_FILENO, 1);
+  //tcdrain(STDIN_FILENO);
+  //tcflush(STDIN_FILENO, 1);
+  //fflush(NULL);
   return 0;
 }
 
@@ -616,7 +626,7 @@ Action actions[] = {
   {NULL, NULL}
 };
 
-static int stdin_got_data (void)
+static int stdin_got_data (int usec)
 {
    struct timeval tv;
    int retval;
@@ -624,14 +634,13 @@ static int stdin_got_data (void)
    fd_set rfds;
    FD_ZERO (&rfds);
    FD_SET (STDIN_FILENO, &rfds);
-   tv.tv_sec = 0; tv.tv_usec = 1;
+   tv.tv_sec = 0; tv.tv_usec = usec;
    return select (1, &rfds, NULL, NULL, &tv) == 1;
 }
 
 EvReaction handle_input (void)
 {
-   fflush (NULL);
-   if (stdin_got_data ())
+   if (stdin_got_data (1))
    {
      char buf[10];
      int length = 0;
@@ -1237,7 +1246,7 @@ void blit_sixel_pal (unsigned int        *pal,
      sixel_nl ();
      y += 6;
 
-     if (stdin_got_data())
+     if (stdin_got_data(1))
      {
        sixel_end ();
        return;
@@ -1246,7 +1255,52 @@ void blit_sixel_pal (unsigned int        *pal,
   sixel_end ();
 }
 
-int main (int argc, char **argv)
+static void term_get_xy (int* x, int *y)
+{
+    struct termios term, orig_term;
+    tcgetattr (STDIN_FILENO, &orig_term);
+    term = orig_term;
+    term.c_lflag &=~ICANON;
+    term.c_lflag &=~ECHO;
+    tcsetattr (STDIN_FILENO, TCSANOW, &term);
+
+    printf ("[6n");
+    fflush(stdout);
+
+    if (stdin_got_data (100000))
+      if (scanf("\033[%d;%dR", y, x) != 2)
+      {
+        *x = 1;
+        *y = 1;
+      }
+    tcsetattr (STDIN_FILENO, TCSADRAIN, &orig_term);
+}
+
+int sixel_is_supported (void)
+{
+  /* check if issuing sixel commands that would move the cursor has such an
+     effect  */
+  char buf[10];
+  int i = 0;
+  int length = 0;
+  int ox, oy;
+  int x, y;
+  int xb, yb;
+  term_get_xy (&ox, &oy);
+  sixel_out_str ( "[1;47H");
+  term_get_xy (&x, &y);
+  sixel_start ();
+  sixel_outf ("#1-?-?--aA-A-");
+  sixel_end ();
+  sixel_outf ("\r");
+  term_get_xy (&xb, &yb);
+  sixel_outf ( "[%d;%dH", oy, ox);
+  fflush(NULL);
+  return (y != yb);
+}
+
+int
+main (int argc, char **argv)
 {
   int x, y;
   int red;
@@ -1297,6 +1351,7 @@ int main (int argc, char **argv)
     zero_origin = 1;
     _nc_raw();
   }
+
 
   message = strdup ("press ? or h for help");
   message_ttl = 3;
@@ -1374,7 +1429,7 @@ interactive_load_image:
                    2,
                    0
                   );
-      if (!stdin_got_data ())
+      if (!stdin_got_data (1))
       {
         int x, y;
         for (y = 0; y < outh-2; y+=2)
@@ -1428,7 +1483,7 @@ interactive_load_image:
                    2,
                    0
                   );
-      if (!stdin_got_data ())
+      if (!stdin_got_data (1))
       {
         int x, y;
         for (y = 0; y < outh-2; y+=2)
@@ -1511,7 +1566,7 @@ interactive_load_image:
                         }
                   }
                   munmap (fb, fb_mapped_size);
-                  fflush (NULL);
+                  fflush (stdout);
                   close (fb_fd);
                 }
                 break;
@@ -1527,7 +1582,7 @@ interactive_load_image:
                    palcount,
                    0
                   );
-      if (!stdin_got_data ())
+      if (!stdin_got_data (1))
       blit_sixel_pal (pal,
                   outw * 4,
                   0,
