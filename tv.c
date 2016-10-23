@@ -424,6 +424,42 @@ EvReaction cmd_rotate (void)
   return REDRAW;
 }
 
+EvReaction cmd_jump (void)
+{
+  int val = 0;
+
+  fprintf (stderr, "\rjump to: ");
+  char buf[10];
+  int length = 0;
+  while ((length=read (STDIN_FILENO, &buf[0], 10)) >= 0)
+  {
+     if (buf[0] == 127)
+     {
+        printf ("\b_\b");
+        val /= 10;
+        fflush (NULL);
+     } else
+     if (buf[0] == 10)
+     {
+        /* */
+        image_no = val;
+        if (image_no >= images_c)
+          image_no = images_c - 1;
+
+        fprintf (stderr, "[%d]\n", val);
+        return RELOAD;
+     } else
+     {
+       if (buf[0] >= '0' && buf[0] <= '9')
+       {
+         val = val * 10 + (buf[0]-'0');
+         fprintf (stderr, "%c", buf[0]);
+       }
+     }
+  }
+  return REDRAW;
+}
+
 EvReaction cmd_slideshow (void)
 {
   slideshow = !slideshow;
@@ -623,6 +659,7 @@ Action actions[] = {
   {"q",        cmd_quit},
   {"r",        cmd_rotate},
   {"?",        cmd_help},
+  {"j",        cmd_jump},
   {NULL, NULL}
 };
 
@@ -698,6 +735,7 @@ void print_status (void)
   }
   else
   {
+    if (verbosity == 0) return;
     if (verbosity > 0)
     {
       sixel_outf ("%i/%i", image_no+1, images_c);
