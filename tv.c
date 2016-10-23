@@ -184,7 +184,7 @@ TvOutput init (int *dw, int *dh)
     status_y = size.ws_row;
   }
 
-  if (sixel_is_supported ())
+  if (sixel_is_supported () && tv_mode == TV_AUTO)
     return TV_SIXEL;
 
   if (tv_mode == TV_FB ||
@@ -242,7 +242,7 @@ void usage ()
   printf ("  -o      reset cursor to 0,0 after each drawing\n");
   printf ("  -m <ascii|utf8|fb|sixel>\n");
   printf ("  -v      be verbose\n");
-  printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
+  //printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
   printf ("  -s      slideshow mode\n");
   printf ("  -g      do a grayscale instead of color\n");
   printf ("  -nd     no dithering\n");
@@ -304,7 +304,7 @@ int   slideshow = 0;
 int   loop = 0;
 float delay = 4.0;
 float time_remaining = 0.0;
-int   verbosity = 0;
+int   verbosity = 1;
 int   desired_width =  1024;
 int   desired_height = 1024;
 int   image_no;
@@ -313,7 +313,7 @@ int   image_w, image_h;
 const char *path = NULL;
 int         pdf = 0;
 int   zero_origin = 0;
-int   interactive = 0;
+int   interactive = 1;
 
 typedef enum {
   RENONE=0,
@@ -463,13 +463,15 @@ EvReaction cmd_jump (void)
 EvReaction cmd_slideshow (void)
 {
   slideshow = !slideshow;
+  if (slideshow)
+    time_remaining = delay;
   return REDRAW;
 }
 
 EvReaction cmd_verbosity (void)
 {
   verbosity ++;
-  if (verbosity > 2)
+  if (verbosity > 3)
     verbosity = 0;
   return REDRAW;
 }
@@ -721,41 +723,53 @@ const char *prepare_pdf_page (const char *path, int page_no)
 void print_status (void)
 {
   sixel_outf ( "[%d;%dH[2K", status_y, status_x);
-  //sixel_outf ("                                      \r");
+
+#if 0
+  printf ("v:%d ", verbosity);
+#endif
+
   if (message)
   {
-    sixel_outf ("%s", message);
+    sixel_outf ("%s |", message);
     if (message_ttl -- <= 0)
     {
-    free (message);
-    message = NULL;
-    message_ttl = 0;
+      free (message);
+      message = NULL;
+      message_ttl = 0;
     }
-    return;
   }
-  else
+
   {
     if (verbosity == 0) return;
     if (verbosity > 0)
     {
       sixel_outf ("%i/%i", image_no+1, images_c);
-      sixel_outf (" %.0f%%",100.0/factor);
 
-      if (pdf)
-        sixel_outf (" %s", pdf_path);// basename(path));
-      else
-        sixel_outf (" %s", path);// basename(path));
+      if (slideshow)
+      {
+        sixel_outf ("[%2.1f]", time_remaining);
+      }
+
+      {
+        char *a;
+        if (pdf) a = strdup (pdf_path);
+        else a = strdup (path);
+        sixel_outf (" %s", basename (a));
+        free (a);
+      }
+
     }
 
-    if (verbosity > 0)
+    if (verbosity > 1)
+    {
       sixel_outf (" %ix%i", image_w, image_h);
+      sixel_outf (" %.0f%%",100.0/factor);
+    }
 
     if (verbosity > 1)
     {
       if (grayscale)
         sixel_outf (" -g");
-      if (slideshow)
-        sixel_outf (" -s");
       if (!do_dither)
         sixel_outf (" -nd");
 
@@ -852,7 +866,7 @@ void parse_args (int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-i"))
     {
-      interactive = 1;
+      interactive = 0;
     }
     else if (!strcmp (argv[x], "-h"))
     {
@@ -1392,7 +1406,7 @@ main (int argc, char **argv)
 
 
   message = strdup ("press ? or h for help");
-  message_ttl = 3;
+  message_ttl = 2;
 
   for (image_no = 0; image_no < images_c; image_no++)
   {
@@ -1642,8 +1656,8 @@ interactive_load_image:
 
       if (interactive)
       {
-        print_status ();
         ev_again:
+        print_status ();
         switch (handle_input())
         {
           case REQUIT:  printf ("."); exit(0); break;
