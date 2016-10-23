@@ -96,6 +96,7 @@ void sixel_flush (void)
   current = -1;
   count = 0;
 }
+
 void sixel_out (int sixel)
 {
   if (current == sixel)
@@ -143,10 +144,12 @@ static inline float mask_a (int x, int y, int c)
 {
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
 }
+
 static inline float mask_x (int x, int y, int c)
 {
   return ((((x + c * 67) ^ y * 236) * 119) & 255 ) / 128.0 / 2;
 }
+
 static float (*mask)(int x, int y, int c) = mask_a;
 
 char *images[4096]={0,};
@@ -166,7 +169,6 @@ int loop = 1;
 int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
-
 
 int sixel_is_supported (void);
 
@@ -189,7 +191,8 @@ TvOutput init (int *dw, int *dh)
     return TV_SIXEL;
 
   if (tv_mode == TV_FB ||
-      !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux"))
+      (            
+      tv_mode == TV_AUTO && !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux")))
   {
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
@@ -673,7 +676,6 @@ Action actions[] = {
 static int stdin_got_data (int usec)
 {
    struct timeval tv;
-   int retval;
    fflush (NULL);
    fd_set rfds;
    FD_ZERO (&rfds);
@@ -907,7 +909,6 @@ void resample_image (const unsigned char *image,
   {
       for (x = 0; x < outw; x ++)
       {
-        int sixel = 0;
         int v = 0;
         int q0 = x     * factor + x_offset;
         int q1 = (x+1) * factor + x_offset;
@@ -972,7 +973,8 @@ void resample_image (const unsigned char *image,
                 accumulated[3] /= c;
           }
        for (int c = 0; c < 4; c++)
-         rgba[i * 4 + c] = accumulated[c]>255?255:accumulated[c]<0?:accumulated[c];
+         rgba[i * 4 + c] =
+            accumulated[c]>255?255:(accumulated[c]<0?0:accumulated[c]);
        i++;
      }
   }
@@ -1086,25 +1088,16 @@ void dither_rgba (const unsigned char *rgba,
 #endif
                  )
 {
-  int red, green, blue;
-  int red_max, green_max, blue_max;
   int red_levels   = 2;
   int green_levels = 4;
   int blue_levels  = 2;
   palcount_to_levels (palcount, &red_levels, &green_levels, &blue_levels, &grayscale);
 
-  red_max = red_levels;
-  green_max = green_levels;
-  blue_max = blue_levels;
-
   if (grayscale)
     {
-      red_max = 1;
-      blue_max = 1;
-      red_levels = green_levels = blue_levels = green_max = palcount;
+      red_levels = green_levels = blue_levels = palcount;
     }
   int x, y;
-  int palno = 0;
 
   /* do resampling as part of view, not as a separate step */
   for (y = 0; y < outh; )
@@ -1163,7 +1156,7 @@ void dither_rgba (const unsigned char *rgba,
                 (dithered[1] * (green_levels-1)  / 255);
             }
           }
-         else if (red == green && green == blue && blue == 0)
+         else // if (red == green && green == blue && blue == 0)
           {
              pal[offset/4] = 0;
           }
@@ -1337,14 +1330,11 @@ int sixel_is_supported (void)
 {
   /* check if issuing sixel commands that would move the cursor has such an
      effect  */
-  char buf[10];
-  int i = 0;
-  int length = 0;
   int ox, oy;
   int x, y;
   int xb, yb;
   term_get_xy (&ox, &oy);
-  sixel_out_str ( "[1;47H");
+  sixel_out_str ("[1;47H");
   term_get_xy (&x, &y);
   sixel_start ();
   sixel_outf ("#1-?-?--aA-A-");
@@ -1359,12 +1349,6 @@ int sixel_is_supported (void)
 int
 main (int argc, char **argv)
 {
-  int x, y;
-  int red;
-  int green;
-  int blue;
-  int red_max, green_max, blue_max;
-
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
    */
@@ -1458,8 +1442,8 @@ interactive_load_image:
     int outw = desired_width;
     int outh = desired_height;
                
-    if (interactive)
-      print_status ();
+    //if (interactive)
+    //  print_status ();
 
     {
       unsigned char *rgba = calloc (outw * 4 * outh, 1);
@@ -1584,8 +1568,6 @@ interactive_load_image:
         case TV_FB:
                 {
                   int scan;
-                  struct fb_var_screeninfo vinfo;
-                  struct fb_fix_screeninfo finfo;
                   int fb_fd = open ("/dev/fb0", O_RDWR);
                   unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
 
@@ -1656,6 +1638,9 @@ interactive_load_image:
       free (pal);
                 }
                 break;
+        case TV_AUTO:
+          fprintf (stderr, "uh? %i", __LINE__);
+          break;
       }
       free (rgba);
 
