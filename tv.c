@@ -162,6 +162,7 @@ int status_x = 1;
 int *fb = NULL;
 #endif
 
+int loop = 1;
 int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
@@ -301,7 +302,6 @@ int   palcount = 16;
 int   do_dither = 1;
 int   grayscale = 0;
 int   slideshow = 0;
-int   loop = 0;
 float delay = 4.0;
 float time_remaining = 0.0;
 int   verbosity = 1;
@@ -612,7 +612,12 @@ EvReaction cmd_next (void)
 {
   image_no ++;
   if (image_no >= images_c)
-    image_no = images_c - 1;
+  {
+    if (loop)
+      image_no = 0;
+    else
+      image_no = images_c - 1;
+  }
   factor = -1;
   time_remaining = delay;
   return RELOAD;
@@ -1666,10 +1671,10 @@ interactive_load_image:
           case REEVENT: goto ev_again;
           case RENONE:
           case REIDLE:
-            usleep (0.20 * 1000.0 * 1000.0);
+            usleep (0.10 * 1000.0 * 1000.0);
             if (slideshow)
             {
-              time_remaining -= 0.2;
+              time_remaining -= 0.1;
               if (time_remaining < 0.0)
               {
                 cmd_next ();
