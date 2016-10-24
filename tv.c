@@ -1415,7 +1415,6 @@ main (int argc, char **argv)
   for (image_no = 0; image_no < images_c; image_no++)
   {
 interactive_load_image:
-    fprintf (stderr, "c");
     //fprintf (stderr,"[%s]\n", images[image_no]);
 
     if (pdf)
@@ -1432,6 +1431,7 @@ interactive_load_image:
       cmd_next ();
       goto interactive_load_image;
     }
+    fprintf (stderr, "c");
     tv_mode = init (&desired_width, &desired_height);
 
     if (factor < 0)
