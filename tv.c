@@ -1469,7 +1469,7 @@ interactive_load_image:
       return -1;
     }
 
-    int clear = 1;
+    int clear = 0;
 
     interactive_again:
     if (0){}
