@@ -356,7 +356,7 @@ EvReaction cmd_help (void)
   //else
   {
     message = strdup ("zoom: 1wf+- pan: cursor keys  next prev: pgdn,space pgup backspace");
-    message_ttl = 1;
+    message_ttl = 50;
   }
   return REDRAW;
 }
@@ -1441,7 +1441,6 @@ interactive_load_image:
       cmd_next ();
       goto interactive_load_image;
     }
-    fprintf (stderr, "c");
     tv_mode = init (&desired_width, &desired_height);
 
     if (factor < 0)
@@ -1459,6 +1458,8 @@ interactive_load_image:
       sixel_outf ("\n\n");
       return -1;
     }
+
+    int clear = 1;
 
     interactive_again:
     if (0){}
@@ -1480,6 +1481,11 @@ interactive_load_image:
                       x_offset,
                       y_offset,
                       factor);
+      if (clear)
+      {
+         fprintf (stderr, "c");
+         clear = 0;
+      }
 
       switch (tv_mode)
       {
@@ -1547,6 +1553,8 @@ interactive_load_image:
               {
                 for (x = 0; x < outw; x+=2)
                 {
+ static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
+ static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
                   int bitmask = 0;
                   int o = y * outw + x;
 
@@ -1554,26 +1562,7 @@ interactive_load_image:
                   if (pal[o+1]!=0)      bitmask |= (1<<1); //2
                   if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
                   if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
-
-                  switch (bitmask)
-                  {
-                    case 0:  sixel_outf (" "); break;
-                    case 1:  sixel_outf ("▘"); break;
-                    case 2:  sixel_outf ("▝"); break;
-                    case 3:  sixel_outf ("▀"); break;
-                    case 4:  sixel_outf ("▖"); break;
-                    case 5:  sixel_outf ("▌"); break;
-                    case 6:  sixel_outf ("▞"); break;
-                    case 7:  sixel_outf ("▛"); break;
-                    case 8:  sixel_outf ("▗"); break;
-                    case 9:  sixel_outf ("▚"); break;
-                    case 10: sixel_outf ("▐"); break;
-                    case 11: sixel_outf ("▜"); break;
-                    case 12: sixel_outf ("▄"); break;
-                    case 13: sixel_outf ("▙"); break;
-                    case 14: sixel_outf ("▟"); break;
-                    case 15: sixel_outf ("█"); break;
-                  }
+                  sixel_outf(utf8_quarts[bitmask]);
                 }
               sixel_outf ("\n");
             }
@@ -1828,3 +1817,5 @@ image_load (const char *path,
     return stbi_load (path, width, height, stride, 4);
   return NULL;
 }
+
+
