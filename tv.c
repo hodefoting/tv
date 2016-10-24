@@ -21,6 +21,7 @@ typedef enum {
               TV_AUTO,
               TV_ASCII,
               TV_SIXEL,
+              TV_SIXEL_HI,
               TV_UTF8,
               TV_FB} TvOutput;
 
@@ -31,7 +32,6 @@ float aspect = 1.0;
 #define SKIP_FULL_BLANK_ROWS 1
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
-
 
 // DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
 // starts off with background-color colored data, rather than the original data
@@ -169,6 +169,7 @@ int loop = 1;
 int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
+int palcount = 16;
 
 int sixel_is_supported (void);
 
@@ -187,8 +188,18 @@ TvOutput init (int *dw, int *dh)
     status_y = size.ws_row;
   }
 
+
   if (sixel_is_supported () && tv_mode == TV_AUTO)
+  {
+    if (getenv("TERM") && !strcmp(getenv("TERM"), "mlterm"))
+    {
+      if (palcount == 16) /* only do the autobump on 16, means that it doesn't
+                             work for 16 directly  */
+        palcount = 255;
+      return TV_SIXEL_HI;
+    }
     return TV_SIXEL;
+  }
 
   if (tv_mode == TV_FB ||
       (            
@@ -301,7 +312,6 @@ static int _nc_raw (void)
 float factor   = -1.0;
 float x_offset = 0.0;
 float y_offset = 0.0;
-int   palcount = 16;
 int   do_dither = 1;
 int   grayscale = 0;
 int   slideshow = 0;
@@ -837,6 +847,11 @@ void parse_args (int argc, char **argv)
         tv_mode = TV_ASCII;
       else if (!strcmp (argv[x+1], "utf8"))
         tv_mode = TV_UTF8;
+      else if (!strcmp (argv[x+1], "sixel-hi"))
+      {
+        tv_mode = TV_SIXEL_HI;
+        palcount = 255;
+      }
       else if (!strcmp (argv[x+1], "sixel"))
         tv_mode = TV_SIXEL;
       else if (!strcmp (argv[x+1], "fb"))
@@ -1459,185 +1474,161 @@ interactive_load_image:
       switch (tv_mode)
       {
         case TV_ASCII:
-                {
-      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-      dither_rgba (rgba,
-                   pal,
-                   outw * 4,
-                   outw,
-                   outh,
-                   1,
-                   2,
-                   0
-                  );
-      if (!stdin_got_data (1))
-      {
-        int x, y;
-        for (y = 0; y < outh-2; y+=2)
-        {
-          for (x = 0; x < outw; x+=2)
           {
-            int bitmask = 0;
-            int o = y * outw + x;
-
-            if (pal[o]!=0)        bitmask |= (1<<0); //1
-            if (pal[o+1]!=0)      bitmask |= (1<<1); //2
-            if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
-            if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
-
-            switch (bitmask)
+            unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+            dither_rgba (rgba,
+              pal,
+              outw * 4,
+              outw,
+              outh,
+              1,
+              2,
+              0);
+            if (!stdin_got_data (1))
             {
-                case 0: sixel_outf (" ");  break;
-                case 1: sixel_outf ("`");  break;
-                case 2: sixel_outf ("'");  break;
-                case 3: sixel_outf ("\""); break;
-                case 4: sixel_outf (",");  break;
-                case 5: sixel_outf ("[");  break;
-                case 6: sixel_outf ("/");  break;
-                case 7: sixel_outf ("P");  break;
-                case 8: sixel_outf (".");  break;
-                case 9: sixel_outf ("\\"); break;
-                case 10: sixel_outf ("]"); break;
-                case 11: sixel_outf ("?"); break;
-                case 12: sixel_outf ("o"); break;
-                case 13: sixel_outf ("b"); break;
-                case 14: sixel_outf ("d"); break;
-                case 15: sixel_outf ("H"); break;
-                default: sixel_outf ("M"); break;
-            }
-          }
-          sixel_outf ("\n");
-        }
-      }
-      free (pal);
-                }
-                break;
-        case TV_UTF8:
+              int x, y;
+              for (y = 0; y < outh-2; y+=2)
+              {
+                for (x = 0; x < outw; x+=2)
                 {
-      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-      dither_rgba (rgba,
-                   pal,
-                   outw * 4,
-                   outw,
-                   outh,
-                   1,
-                   2,
-                   0
-                  );
-      if (!stdin_got_data (1))
-      {
-        int x, y;
-        for (y = 0; y < outh-2; y+=2)
-        {
-          for (x = 0; x < outw; x+=2)
-          {
-            int bitmask = 0;
-            int o = y * outw + x;
+                  int bitmask = 0;
+                  int o = y * outw + x;
 
-            if (pal[o]!=0)        bitmask |= (1<<0); //1
-            if (pal[o+1]!=0)      bitmask |= (1<<1); //2
-            if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
-            if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
+                  if (pal[o]!=0)        bitmask |= (1<<0); //1
+                  if (pal[o+1]!=0)      bitmask |= (1<<1); //2
+                  if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
+                  if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
 
-            switch (bitmask)
-            {
-              case 0:  sixel_outf (" "); break;
-              case 1:  sixel_outf ("▘"); break;
-              case 2:  sixel_outf ("▝"); break;
-              case 3:  sixel_outf ("▀"); break;
-              case 4:  sixel_outf ("▖"); break;
-              case 5:  sixel_outf ("▌"); break;
-              case 6:  sixel_outf ("▞"); break;
-              case 7:  sixel_outf ("▛"); break;
-              case 8:  sixel_outf ("▗"); break;
-              case 9:  sixel_outf ("▚"); break;
-              case 10: sixel_outf ("▐"); break;
-              case 11: sixel_outf ("▜"); break;
-              case 12: sixel_outf ("▄"); break;
-              case 13: sixel_outf ("▙"); break;
-              case 14: sixel_outf ("▟"); break;
-              case 15: sixel_outf ("█"); break;
-            }
-          }
-          sixel_outf ("\n");
-        }
-      }
-      free (pal);
-                }
-                break;
-        case TV_FB:
-                {
-                  int scan;
-                  int fb_fd = open ("/dev/fb0", O_RDWR);
-                  unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
-
-                      for (scan = 0; scan < outh; scan++)
-                      {
-                        unsigned char *src = rgba + outw * 4 * scan;
-                        unsigned char *dst = fb + fb_stride * scan;
-                        int x;
-
-				        switch (fb_bpp)
-                        {
-                          case 32:
-                          for (x= 0; x < outw; x++)
-                          {
-                            dst[0]=src[2];
-                            dst[1]=src[1];
-                            dst[2]=src[0];
-                            dst[3]=src[3];
-                            src+=4;
-                            dst+=4;
-                          }
-                          break;
-                          case 24:
-                          memcpy32_24 (dst, src, outw);
-                          break;
-                          case 16:
-                          memcpy32_16 (dst, src, outw);
-                          break;
-                          case 15:
-                          memcpy32_15 (dst, src, outw);
-                          break;
-                          case 8:
-                          memcpy32_8 (dst, src, outw);
-                          break;
-                        }
+                  switch (bitmask)
+                  {
+                    case 0: sixel_outf (" ");  break;
+                    case 1: sixel_outf ("`");  break;
+                    case 2: sixel_outf ("'");  break;
+                    case 3: sixel_outf ("\""); break;
+                    case 4: sixel_outf (",");  break;
+                    case 5: sixel_outf ("[");  break;
+                    case 6: sixel_outf ("/");  break;
+                    case 7: sixel_outf ("P");  break;
+                    case 8: sixel_outf (".");  break;
+                    case 9: sixel_outf ("\\"); break;
+                    case 10: sixel_outf ("]"); break;
+                    case 11: sixel_outf ("?"); break;
+                    case 12: sixel_outf ("o"); break;
+                    case 13: sixel_outf ("b"); break;
+                    case 14: sixel_outf ("d"); break;
+                    case 15: sixel_outf ("H"); break;
+                    default: sixel_outf ("M"); break;
                   }
-                  munmap (fb, fb_mapped_size);
-                  fflush (stdout);
-                  close (fb_fd);
                 }
-                break;
-        case TV_SIXEL:
+                sixel_outf ("\n");
+              }
+            }
+            free (pal);
+          }
+          break;
+        case TV_UTF8:
+          {
+            unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+            dither_rgba (rgba, pal, outw * 4, outw, outh, 1, 2, 0);
+            if (!stdin_got_data (1))
+            {
+              int x, y;
+              for (y = 0; y < outh-2; y+=2)
+              {
+                for (x = 0; x < outw; x+=2)
                 {
+                  int bitmask = 0;
+                  int o = y * outw + x;
+
+                  if (pal[o]!=0)        bitmask |= (1<<0); //1
+                  if (pal[o+1]!=0)      bitmask |= (1<<1); //2
+                  if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
+                  if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
+
+                  switch (bitmask)
+                  {
+                    case 0:  sixel_outf (" "); break;
+                    case 1:  sixel_outf ("▘"); break;
+                    case 2:  sixel_outf ("▝"); break;
+                    case 3:  sixel_outf ("▀"); break;
+                    case 4:  sixel_outf ("▖"); break;
+                    case 5:  sixel_outf ("▌"); break;
+                    case 6:  sixel_outf ("▞"); break;
+                    case 7:  sixel_outf ("▛"); break;
+                    case 8:  sixel_outf ("▗"); break;
+                    case 9:  sixel_outf ("▚"); break;
+                    case 10: sixel_outf ("▐"); break;
+                    case 11: sixel_outf ("▜"); break;
+                    case 12: sixel_outf ("▄"); break;
+                    case 13: sixel_outf ("▙"); break;
+                    case 14: sixel_outf ("▟"); break;
+                    case 15: sixel_outf ("█"); break;
+                  }
+                }
+              sixel_outf ("\n");
+            }
+          }
+          free (pal);
+          }
+          break;
+        case TV_FB:
+          {
+            int scan;
+            int fb_fd = open ("/dev/fb0", O_RDWR);
+            unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+
+            for (scan = 0; scan < outh; scan++)
+            {
+              unsigned char *src = rgba + outw * 4 * scan;
+              unsigned char *dst = fb + fb_stride * scan;
+              int x;
+
+		      switch (fb_bpp)
+                {
+                  case 32:
+                  for (x= 0; x < outw; x++)
+                  {
+                    dst[0]=src[2];
+                    dst[1]=src[1];
+                    dst[2]=src[0];
+                    dst[3]=src[3];
+                    src+=4;
+                    dst+=4;
+                  }
+                  break;
+                  case 24:
+                    memcpy32_24 (dst, src, outw);
+                    break;
+                  case 16:
+                    memcpy32_16 (dst, src, outw);
+                    break;
+                  case 15:
+                    memcpy32_15 (dst, src, outw);
+                    break;
+                  case 8:
+                    memcpy32_8 (dst, src, outw);
+                    break;
+                }
+            }
+            munmap (fb, fb_mapped_size);
+            fflush (stdout);
+            close (fb_fd);
+          }
+          break;
+        case TV_SIXEL_HI:
+        case TV_SIXEL:
+          {
       unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-      dither_rgba (rgba,
-                   pal,
-                   outw * 4,
-                   outw,
-                   outh,
-                   grayscale,
-                   palcount,
-                   0
-                  );
+      dither_rgba (rgba, pal, outw * 4, outw, outh, grayscale, palcount, 0);
       if (!stdin_got_data (1))
-      blit_sixel_pal (pal,
-                  outw * 4,
-                  0,
-                  0,
-                  outw,
-                  outh,
-                  grayscale,
-                  palcount,
-                  0
+      blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, grayscale, palcount, 0
 #ifdef DELTA_FRAME
                   ,fb
 #endif
                   );
       free (pal);
-                }
-                break;
+           }
+           break;
         case TV_AUTO:
           fprintf (stderr, "uh? %i", __LINE__);
           break;
