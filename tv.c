@@ -455,7 +455,7 @@ EvReaction cmd_jump (void)
      if (buf[0] == 10)
      {
         /* */
-        image_no = val;
+        image_no = val - 1;
         if (image_no >= images_c)
           image_no = images_c - 1;
 
