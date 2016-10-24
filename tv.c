@@ -441,16 +441,21 @@ EvReaction cmd_jump (void)
 {
   int val = 0;
 
-  fprintf (stderr, "\rjump to: ");
+  fprintf (stderr, "\rjump to: [K");
   char buf[10];
+  int count = 0;
   int length = 0;
   while ((length=read (STDIN_FILENO, &buf[0], 10)) >= 0)
   {
      if (buf[0] == 127)
      {
-        printf ("\b_\b");
-        val /= 10;
-        fflush (NULL);
+        if (count>0)
+        {
+          printf ("\b \b");
+          val /= 10;
+          fflush (NULL);
+          count--;
+        }
      } else
      if (buf[0] == 10)
      {
@@ -458,15 +463,15 @@ EvReaction cmd_jump (void)
         image_no = val - 1;
         if (image_no >= images_c)
           image_no = images_c - 1;
-
-        fprintf (stderr, "[%d]\n", val);
         return RELOAD;
      } else
      {
        if (buf[0] >= '0' && buf[0] <= '9')
        {
          val = val * 10 + (buf[0]-'0');
-         fprintf (stderr, "%c", buf[0]);
+         fprintf (stdout, "%c", buf[0]);
+         fflush(NULL);
+         count++;
        }
      }
   }
