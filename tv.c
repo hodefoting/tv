@@ -1334,10 +1334,10 @@ int sixel_is_supported (void)
   int x, y;
   int xb, yb;
   term_get_xy (&ox, &oy);
-  sixel_out_str ("[1;47H");
+  sixel_outf ("[1;47H");
   term_get_xy (&x, &y);
   sixel_start ();
-  sixel_outf ("#1-?-?--aA-A-");
+  sixel_outf ("#1---------A-");
   sixel_end ();
   sixel_outf ("\r");
   term_get_xy (&xb, &yb);
