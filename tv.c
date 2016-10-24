@@ -1343,11 +1343,14 @@ static void term_get_xy (int* x, int *y)
 
 int sixel_is_supported (void)
 {
+  static int inited = -22;
   /* check if issuing sixel commands that would move the cursor has such an
      effect  */
   int ox, oy;
   int x, y;
   int xb, yb;
+  if (inited == -22)
+  {
   term_get_xy (&ox, &oy);
   sixel_outf ("[1;47H");
   term_get_xy (&x, &y);
@@ -1358,7 +1361,9 @@ int sixel_is_supported (void)
   term_get_xy (&xb, &yb);
   sixel_outf ( "[%d;%dH", oy, ox);
   fflush(NULL);
-  return (y != yb);
+   inited = (y != yb);
+  }
+  return inited;
 }
 
 int
