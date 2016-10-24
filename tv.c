@@ -744,7 +744,12 @@ const char *prepare_pdf_page (const char *path, int page_no)
 
 void print_status (void)
 {
-  sixel_outf ( "[%d;%dH[2K", status_y, status_x);
+  int cleared = 0;
+
+#define CLEAR if (cleared == 0) {\
+    cleared = 1;\
+    sixel_outf ( "[%d;%dH[2K", status_y, status_x);\
+  }\
 
 #if 0
   printf ("v:%d ", verbosity);
@@ -752,6 +757,8 @@ void print_status (void)
 
   if (message)
   {
+    CLEAR
+
     sixel_outf ("%s |", message);
     if (message_ttl -- <= 0)
     {
@@ -763,6 +770,9 @@ void print_status (void)
 
   {
     if (verbosity == 0) return;
+
+    CLEAR
+
     if (verbosity > 0)
     {
       sixel_outf ("%i/%i", image_no+1, images_c);
@@ -1507,34 +1517,14 @@ interactive_load_image:
               {
                 for (x = 0; x < outw; x+=2)
                 {
+                  static char *ascii_quarts[]={" ","`","'","\"",",","[","/","P",".","\\","]","?","o","b","d","8",NULL};
                   int bitmask = 0;
                   int o = y * outw + x;
-
                   if (pal[o]!=0)        bitmask |= (1<<0); //1
                   if (pal[o+1]!=0)      bitmask |= (1<<1); //2
                   if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
                   if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
-
-                  switch (bitmask)
-                  {
-                    case 0: sixel_outf (" ");  break;
-                    case 1: sixel_outf ("`");  break;
-                    case 2: sixel_outf ("'");  break;
-                    case 3: sixel_outf ("\""); break;
-                    case 4: sixel_outf (",");  break;
-                    case 5: sixel_outf ("[");  break;
-                    case 6: sixel_outf ("/");  break;
-                    case 7: sixel_outf ("P");  break;
-                    case 8: sixel_outf (".");  break;
-                    case 9: sixel_outf ("\\"); break;
-                    case 10: sixel_outf ("]"); break;
-                    case 11: sixel_outf ("?"); break;
-                    case 12: sixel_outf ("o"); break;
-                    case 13: sixel_outf ("b"); break;
-                    case 14: sixel_outf ("d"); break;
-                    case 15: sixel_outf ("H"); break;
-                    default: sixel_outf ("M"); break;
-                  }
+                  sixel_outf (ascii_quarts[bitmask]);
                 }
                 sixel_outf ("\n");
               }
