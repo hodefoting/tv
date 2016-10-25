@@ -1077,18 +1077,20 @@ PalInfo infos[]={
  {64, 124, 4, 4, 4},
  {125, 149, 5, 5, 5},
  {150, 215, 5, 6, 5},
- {216, 251, 6, 6, 6},
- {252, 342, 6, 7, 6},
+ {216, 239, 6, 6, 6},
+ {240, 251, 6, 8, 5},
+ {252, 255, 6, 7, 6},
+ {256, 342, 8, 8, 4},
  {343, 411, 7, 7, 7},
  {512, 728, 8, 8, 8},
  {729, 999, 9, 9, 9},
  {1000, 1330, 10, 10, 10},
- {1331, 1727, 10, 10, 10},
- {1728, 2196, 10, 10, 10},
- {2197, 2743, 10, 10, 10},
- {2744, 3374, 10, 10, 10},
- {3375, 4095, 10, 10, 10},
- {4096, 10240, 10, 10, 10},
+ {1331, 1727, 11, 11, 11},
+ {1728, 2196, 12, 12, 12},
+ {2197, 2743, 13, 13, 13},
+ {2744, 3374, 14, 14, 14},
+ {3375, 4095, 15, 15, 15},
+ {4096, 10240, 16, 16, 16},
 };
 
 void palcount_to_levels (int palcount,
@@ -1096,7 +1098,7 @@ void palcount_to_levels (int palcount,
                          int *green_levels,
                          int *blue_levels,
                          int *grayscale)
-              {
+{
   int i;
   for (i = 0; i < sizeof(infos)/sizeof(infos[0]); i++)
     if (infos[i].start_pal <= palcount && palcount <= infos[i].end_pal )
@@ -1117,18 +1119,9 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
   while (count--)
     {
       int dithered[3];
-      if (do_dither)
-      {
-        dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
-        dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
-        dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
-      }
-      else
-      {
-        dithered[0] = src[0] + 0.5 * 255/(red_levels-1);
-        dithered[1] = src[1] + 0.5 * 255/(green_levels-1);
-        dithered[2] = src[2] + 0.5 * 255/(blue_levels-1);
-      }
+      dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
+      dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
+      dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
       for (int c = 0; c < 3; c++)
       {
         dithered[c] = dithered[c] > 255 ? 255 : dithered[c];
@@ -1148,17 +1141,28 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
 static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count,
                                 int y, int x)
 {
+  int red_levels = (1 << 5);
+  int green_levels = (1 << 5);
+  int blue_levels = (1 << 5);
   while (count--)
     {
-      int big = ((src[2] >> 3)) 
-              + ((src[1] >> 3)<<5) +
-                ((src[0] >> 3)<<10)
-                
-                ;
+      int dithered[3];
+      dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
+      dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
+      dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
+      for (int c = 0; c < 3; c++)
+      {
+        dithered[c] = dithered[c] > 255 ? 255 : dithered[c];
+        dithered[c] = dithered[c] < 0 ? 0 : dithered[c];
+      }
+      int big = ((dithered[2] * (blue_levels-1)  / 255)) +
+                ((dithered[1] * (green_levels-1) / 255) << 5) +
+                ((dithered[0] * (red_levels-1)   / 255) << 10);
       dst[1] = big >> 8;
       dst[0] = big & 255;
       dst+=2;
       src+=4;
+      x++;
     }
 }
 
@@ -1171,18 +1175,9 @@ static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count,
   while (count--)
     {
       int dithered[3];
-      if (do_dither)
-      {
-        dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
-        dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
-        dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
-      }
-      else
-      {
-        dithered[0] = src[0] + 0.5 * 255/(red_levels-1);
-        dithered[1] = src[1] + 0.5 * 255/(green_levels-1);
-        dithered[2] = src[2] + 0.5 * 255/(blue_levels-1);
-      }
+      dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
+      dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
+      dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
       for (int c = 0; c < 3; c++)
       {
         dithered[c] = dithered[c] > 255 ? 255 : dithered[c];
