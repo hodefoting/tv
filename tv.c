@@ -169,9 +169,15 @@ int loop = 1;
 int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
-int palcount = 16;
+int palcount = -1;
 
 int sixel_is_supported (void);
+
+
+static unsigned short ored[256], ogreen[256], oblue[256];
+static struct fb_cmap ocmap = {0, 256, ored, ogreen, oblue, NULL};
+int ocmap_used = 0;
+
 
 TvOutput init (int *dw, int *dh)
 {
@@ -193,11 +199,13 @@ TvOutput init (int *dw, int *dh)
   {
     if (getenv("TERM") && !strcmp(getenv("TERM"), "mlterm"))
     {
-      if (palcount == 16) /* only do the autobump on 16, means that it doesn't
+      if (palcount == -1) /* only do the autobump on 16, means that it doesn't
                              work for 16 directly  */
         palcount = 255;
       return TV_SIXEL_HI;
     }
+    if (palcount == -1)
+      palcount = 16;
     return TV_SIXEL;
   }
 
@@ -212,6 +220,7 @@ TvOutput init (int *dw, int *dh)
     ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
     ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
 
+
     *dw = vinfo.xres;
     *dh = vinfo.yres;
 
@@ -221,6 +230,30 @@ TvOutput init (int *dw, int *dh)
       fb_bpp = vinfo.red.length +
                vinfo.green.length +
                vinfo.blue.length;
+    }
+
+    if (fb_bpp == 8)
+    {
+      int i;
+      unsigned short red[256], green[256], blue[256];
+      struct fb_cmap cmap = {0, 256, red, green, blue, NULL};
+      
+      if (ocmap_used == 0)
+      {
+        ioctl (fb_fd, FBIOGETCMAP, &ocmap);
+        ocmap_used = 1;
+      }
+      i=0;
+      for (int r = 0; r < 6; r++)
+      for (int g = 0; g < 7; g++)
+      for (int b = 0; b < 6; b++)
+      {
+        red[i]   = (r / 5.0) * 65535;
+        green[i] = (g / 6.0) * 65535;
+        blue[i] =  (b / 5.0) * 65535;
+        i++;
+      }
+      ioctl (fb_fd, FBIOPUTCMAP, &cmap);
     }
 
     fb_stride = finfo.line_length;
@@ -284,9 +317,21 @@ static void _nc_noraw (void)
 }
 
 static void
+restore_cmap (void)
+{
+  if (ocmap_used)
+  {
+    int fb_fd = open ("/dev/fb0", O_RDWR);
+    ioctl (fb_fd, FBIOPUTCMAP, &ocmap);
+  }
+}
+
+static void
 sixel_at_exit (void)
 {
   _nc_noraw();
+
+  restore_cmap ();
 }
 
 static int _nc_raw (void)
@@ -1015,6 +1060,37 @@ void resample_image (const unsigned char *image,
   }
 }
 
+typedef struct PalInfo {
+  int start_pal;
+  int end_pal;
+  int red_levels;
+  int green_levels;
+  int blue_levels;
+} PalInfo;
+
+PalInfo infos[]={
+ {8, 11, 2, 2, 2},
+ {12, 15, 2, 3, 2},
+ {16, 22, 2, 4, 2},
+ {24, 31, 3, 4, 2},
+ {32, 63, 3, 3, 3},
+ {64, 124, 4, 4, 4},
+ {125, 149, 5, 5, 5},
+ {150, 215, 5, 6, 5},
+ {216, 251, 6, 6, 6},
+ {252, 342, 6, 7, 6},
+ {343, 411, 7, 7, 7},
+ {512, 728, 8, 8, 8},
+ {729, 999, 9, 9, 9},
+ {1000, 1330, 10, 10, 10},
+ {1331, 1727, 10, 10, 10},
+ {1728, 2196, 10, 10, 10},
+ {2197, 2743, 10, 10, 10},
+ {2744, 3374, 10, 10, 10},
+ {3375, 4095, 10, 10, 10},
+ {4096, 10240, 10, 10, 10},
+};
+
 void palcount_to_levels (int palcount,
                          int *red_levels,
                          int *green_levels,
@@ -1022,34 +1098,20 @@ void palcount_to_levels (int palcount,
                          int *grayscale)
 {
   {
-    if (palcount      >= 1000)
-    { *red_levels = 10; *green_levels = 10; *blue_levels  = 10; }
-    else if (palcount >= 729)
-    { *red_levels = 9; *green_levels = 9; *blue_levels  = 9; }
-    else if (palcount >= 512)
-    { *red_levels = 8; *green_levels = 8; *blue_levels  = 8; }
-    else if (palcount >= 343)
-    { *red_levels = 7; *green_levels = 7; *blue_levels  = 7; }
-    else if (palcount >= 252)
-    { *red_levels = 6; *green_levels = 7; *blue_levels  = 6; }
-    else if (palcount >= 216)
-    { *red_levels = 6; *green_levels = 6; *blue_levels  = 6; }
-    else if (palcount >= 150)
-    { *red_levels = 5; *green_levels = 6; *blue_levels  = 5; }
-    else if (palcount >= 125)
-    { *red_levels = 5; *green_levels = 5; *blue_levels  = 5; }
-    else if (palcount >= 64)
-    { *red_levels = 4;  *green_levels = 4; *blue_levels = 4; }
-    else if (palcount >= 32)
-    { *red_levels  = 3; *green_levels = 3; *blue_levels = 3; }
-    else if (palcount >= 24)
-    { *red_levels  = 3; *green_levels = 4; *blue_levels = 2; }
-    else if (palcount >= 16) /* the most common case */
-    { *red_levels  = 2; *green_levels = 4; *blue_levels  = 2; }
-    else if (palcount >= 12) 
-    { *red_levels  = 2; *green_levels = 3; *blue_levels  = 2; }
-    else if (palcount >= 8) 
-    { *red_levels  = 2; *green_levels = 2; *blue_levels  = 2; }
+    if (palcount      >= 1000) { *red_levels = 10; *green_levels = 10; *blue_levels  = 10; }
+    else if (palcount >= 729) { *red_levels = 9; *green_levels = 9; *blue_levels  = 9; }
+    else if (palcount >= 512) { *red_levels = 8; *green_levels = 8; *blue_levels  = 8; }
+    else if (palcount >= 343) { *red_levels = 7; *green_levels = 7; *blue_levels  = 7; }
+    else if (palcount >= 252) { *red_levels = 6; *green_levels = 7; *blue_levels  = 6; }
+    else if (palcount >= 216) { *red_levels = 6; *green_levels = 6; *blue_levels  = 6; }
+    else if (palcount >= 150) { *red_levels = 5; *green_levels = 6; *blue_levels  = 5; }
+    else if (palcount >= 125) { *red_levels = 5; *green_levels = 5; *blue_levels  = 5; }
+    else if (palcount >= 64) { *red_levels = 4;  *green_levels = 4; *blue_levels = 4; }
+    else if (palcount >= 32) { *red_levels  = 3; *green_levels = 3; *blue_levels = 3; }
+    else if (palcount >= 24) { *red_levels  = 3; *green_levels = 4; *blue_levels = 2; }
+    else if (palcount >= 16) /* the most common case */ { *red_levels = 2; *green_levels = 4; *blue_levels  = 2; }
+    else if (palcount >= 12) { *red_levels  = 2; *green_levels = 3; *blue_levels  = 2; }
+    else if (palcount >= 8) { *red_levels  = 2; *green_levels = 2; *blue_levels  = 2; }
     else 
     {
       *grayscale = 1;
@@ -1092,6 +1154,7 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
               if (dithered[2] < 0) dithered[2] = 0;
             }
           }
+
       int big = ((dithered[2] * (blue_levels-1) / 255)) +
                 ((dithered[1] * (green_levels-1) / 255) << 5) +
                 ((dithered[0] * (red_levels-1) / 255) << 11);
@@ -1099,6 +1162,7 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
       dst[0] = big & 255;
       dst+=2;
       src+=4;
+      x++;
     }
 }
 
@@ -1122,13 +1186,46 @@ static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count,
 static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count,
                                int y, int x)
 {
+  int red_levels = 6;
+  int green_levels = 7;
+  int blue_levels = 6;
+
   while (count--)
     {
-      dst[0] = ((src[0] >> 5)) +
-               ((src[1] >> 5)<<3) +
-               ((src[2] >> 6)<<6);
+      int dithered[3] = {0,0,0};
+          {
+            dithered[0] = src[0];
+            dithered[1] = src[1];
+            dithered[2] = src[2];
+            if (do_dither)
+            {
+              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
+              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
+              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
+            }
+            else
+            {
+              dithered[0] += 0.5 * 255/(red_levels-1);
+              dithered[1] += 0.5 * 255/(green_levels-1);
+              dithered[2] += 0.5 * 255/(blue_levels-1);
+            }
+            {
+              if (dithered[0] > 255) dithered[0] = 255;
+              if (dithered[1] > 255) dithered[1] = 255;
+              if (dithered[2] > 255) dithered[2] = 255;
+              if (dithered[0] < 0) dithered[0] = 0;
+              if (dithered[1] < 0) dithered[1] = 0;
+              if (dithered[2] < 0) dithered[2] = 0;
+            }
+          }
+
+      int big = ((dithered[2] * (blue_levels-1) / 255)) +
+                ((dithered[1] * (green_levels-1) / 255) * 6) +
+                ((dithered[0] * (red_levels-1) / 255) * 6 * 7);
+      dst[0] = big & 0xff;
       dst+=1;
       src+=4;
+      x++;
     }
 }
 
