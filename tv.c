@@ -361,24 +361,24 @@ static int _nc_raw (void)
   return 0;
 }
 
-float factor   = -1.0;
-float x_offset = 0.0;
-float y_offset = 0.0;
-int   do_dither = 1;
-int   grayscale = 0;
-int   slideshow = 0;
-float delay = 4.0;
-float time_remaining = 0.0;
-int   verbosity = 1;
-int   desired_width =  1024;
-int   desired_height = 1024;
-int   image_no;
+float          factor   = -1.0;
+float          x_offset = 0.0;
+float          y_offset = 0.0;
+int            do_dither = 1;
+int            grayscale = 0;
+int            slideshow = 0;
+float          delay = 4.0;
+float          time_remaining = 0.0;
+int            verbosity = 1;
+int            desired_width =  1024;
+int            desired_height = 1024;
+int            image_no;
 unsigned char *image = NULL;
-int   image_w, image_h;
-const char *path = NULL;
-int         pdf = 0;
-int   zero_origin = 0;
-int   interactive = 1;
+int            image_w, image_h;
+const char    *path = NULL;
+int            pdf = 0;
+int            zero_origin = 0;
+int            interactive = 1;
 
 typedef enum {
   RENONE=0,
@@ -1096,27 +1096,16 @@ void palcount_to_levels (int palcount,
                          int *green_levels,
                          int *blue_levels,
                          int *grayscale)
-{
-  {
-    if (palcount      >= 1000) { *red_levels = 10; *green_levels = 10; *blue_levels  = 10; }
-    else if (palcount >= 729) { *red_levels = 9; *green_levels = 9; *blue_levels  = 9; }
-    else if (palcount >= 512) { *red_levels = 8; *green_levels = 8; *blue_levels  = 8; }
-    else if (palcount >= 343) { *red_levels = 7; *green_levels = 7; *blue_levels  = 7; }
-    else if (palcount >= 252) { *red_levels = 6; *green_levels = 7; *blue_levels  = 6; }
-    else if (palcount >= 216) { *red_levels = 6; *green_levels = 6; *blue_levels  = 6; }
-    else if (palcount >= 150) { *red_levels = 5; *green_levels = 6; *blue_levels  = 5; }
-    else if (palcount >= 125) { *red_levels = 5; *green_levels = 5; *blue_levels  = 5; }
-    else if (palcount >= 64) { *red_levels = 4;  *green_levels = 4; *blue_levels = 4; }
-    else if (palcount >= 32) { *red_levels  = 3; *green_levels = 3; *blue_levels = 3; }
-    else if (palcount >= 24) { *red_levels  = 3; *green_levels = 4; *blue_levels = 2; }
-    else if (palcount >= 16) /* the most common case */ { *red_levels = 2; *green_levels = 4; *blue_levels  = 2; }
-    else if (palcount >= 12) { *red_levels  = 2; *green_levels = 3; *blue_levels  = 2; }
-    else if (palcount >= 8) { *red_levels  = 2; *green_levels = 2; *blue_levels  = 2; }
-    else 
-    {
-      *grayscale = 1;
-    }
-  }
+              {
+  int i;
+  for (i = 0; i < sizeof(infos)/sizeof(infos[0]); i++)
+    if (infos[i].start_pal <= palcount && palcount <= infos[i].end_pal )
+      {
+        *red_levels = infos[i].red_levels;
+        *green_levels = infos[i].green_levels;
+        *blue_levels = infos[i].blue_levels;
+        return;
+      }
 }
 
 static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
@@ -1125,36 +1114,26 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
   int red_levels = (1 << 5);
   int green_levels = (1 << 6);
   int blue_levels = (1 << 5);
-
   while (count--)
     {
-      int dithered[3] = {0,0,0};
-          {
-            dithered[0] = src[0];
-            dithered[1] = src[1];
-            dithered[2] = src[2];
-            if (do_dither)
-            {
-              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
-              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
-              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
-            }
-            else
-            {
-              dithered[0] += 0.5 * 255/(red_levels-1);
-              dithered[1] += 0.5 * 255/(green_levels-1);
-              dithered[2] += 0.5 * 255/(blue_levels-1);
-            }
-            {
-              if (dithered[0] > 255) dithered[0] = 255;
-              if (dithered[1] > 255) dithered[1] = 255;
-              if (dithered[2] > 255) dithered[2] = 255;
-              if (dithered[0] < 0) dithered[0] = 0;
-              if (dithered[1] < 0) dithered[1] = 0;
-              if (dithered[2] < 0) dithered[2] = 0;
-            }
-          }
-
+      int dithered[3];
+      if (do_dither)
+      {
+        dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
+        dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
+        dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
+      }
+      else
+      {
+        dithered[0] = src[0] + 0.5 * 255/(red_levels-1);
+        dithered[1] = src[1] + 0.5 * 255/(green_levels-1);
+        dithered[2] = src[2] + 0.5 * 255/(blue_levels-1);
+      }
+      for (int c = 0; c < 3; c++)
+      {
+        dithered[c] = dithered[c] > 255 ? 255 : dithered[c];
+        dithered[c] = dithered[c] < 0 ? 0 : dithered[c];
+      }
       int big = ((dithered[2] * (blue_levels-1) / 255)) +
                 ((dithered[1] * (green_levels-1) / 255) << 5) +
                 ((dithered[0] * (red_levels-1) / 255) << 11);
@@ -1189,36 +1168,26 @@ static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count,
   int red_levels = 6;
   int green_levels = 7;
   int blue_levels = 6;
-
   while (count--)
     {
-      int dithered[3] = {0,0,0};
-          {
-            dithered[0] = src[0];
-            dithered[1] = src[1];
-            dithered[2] = src[2];
-            if (do_dither)
-            {
-              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
-              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
-              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
-            }
-            else
-            {
-              dithered[0] += 0.5 * 255/(red_levels-1);
-              dithered[1] += 0.5 * 255/(green_levels-1);
-              dithered[2] += 0.5 * 255/(blue_levels-1);
-            }
-            {
-              if (dithered[0] > 255) dithered[0] = 255;
-              if (dithered[1] > 255) dithered[1] = 255;
-              if (dithered[2] > 255) dithered[2] = 255;
-              if (dithered[0] < 0) dithered[0] = 0;
-              if (dithered[1] < 0) dithered[1] = 0;
-              if (dithered[2] < 0) dithered[2] = 0;
-            }
-          }
-
+      int dithered[3];
+      if (do_dither)
+      {
+        dithered[0] = src[0] + mask (x, y, 0) * 255/(red_levels-1);
+        dithered[1] = src[1] + mask (x, y, 1) * 255/(green_levels-1);
+        dithered[2] = src[2] + mask (x, y, 2) * 255/(blue_levels-1);
+      }
+      else
+      {
+        dithered[0] = src[0] + 0.5 * 255/(red_levels-1);
+        dithered[1] = src[1] + 0.5 * 255/(green_levels-1);
+        dithered[2] = src[2] + 0.5 * 255/(blue_levels-1);
+      }
+      for (int c = 0; c < 3; c++)
+      {
+        dithered[c] = dithered[c] > 255 ? 255 : dithered[c];
+        dithered[c] = dithered[c] < 0 ? 0 : dithered[c];
+      }
       int big = ((dithered[2] * (blue_levels-1) / 255)) +
                 ((dithered[1] * (green_levels-1) / 255) * 6) +
                 ((dithered[0] * (red_levels-1) / 255) * 6 * 7);
@@ -1683,7 +1652,7 @@ interactive_load_image:
               {
                 for (x = 0; x < outw; x+=2)
                 {
- static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
+ //static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
  static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
                   int bitmask = 0;
                   int o = y * outw + x;
