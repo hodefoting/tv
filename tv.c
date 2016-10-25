@@ -1078,7 +1078,7 @@ PalInfo infos[]={
  {125, 149, 5, 5, 5},
  {150, 215, 5, 6, 5},
  {216, 239, 6, 6, 6},
- {240, 251, 6, 8, 5},
+ {240, 251, 6, 8, 5},  // should use this one for 8bpp fb - and leave 16 first c# alone
  {252, 255, 6, 7, 6},
  {256, 342, 8, 8, 4},
  {343, 411, 7, 7, 7},
@@ -1223,14 +1223,11 @@ void dither_rgba (const unsigned char *rgba,
   int green_levels = 4;
   int blue_levels  = 2;
   palcount_to_levels (palcount, &red_levels, &green_levels, &blue_levels, &grayscale);
-
   if (grayscale)
     {
       red_levels = green_levels = blue_levels = palcount;
     }
   int x, y;
-
-  /* do resampling as part of view, not as a separate step */
   for (y = 0; y < outh; )
   {
     {
@@ -1287,21 +1284,10 @@ void dither_rgba (const unsigned char *rgba,
                 (dithered[1] * (green_levels-1)  / 255);
             }
           }
-         else // if (red == green && green == blue && blue == 0)
+         else 
           {
              pal[offset/4] = 0;
           }
-       }
-
-      /* skip outputting entirely transparent, could even skip the set color and carriage return */
-       if (count == outw &&
-           current == 0)
-       {
-         count = 0;
-         current = -1;
-       }
-       else
-       {
        }
      }
      y ++;
@@ -1911,5 +1897,4 @@ image_load (const char *path,
     return stbi_load (path, width, height, stride, 4);
   return NULL;
 }
-
 
