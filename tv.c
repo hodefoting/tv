@@ -481,8 +481,6 @@ EvReaction cmd_jump (void)
 EvReaction cmd_slideshow (void)
 {
   slideshow = !slideshow;
-  if (slideshow)
-    time_remaining = delay;
   return REDRAW;
 }
 
@@ -837,7 +835,7 @@ void parse_args (int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-s"))
     {
-      slideshow = 1;
+      cmd_slideshow ();
     }
     else if (!strcmp (argv[x], "-x"))
     {
@@ -1056,9 +1054,9 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count)
 {
   while (count--)
     {
-      int big = ((src[0] >> 3)) +
+      int big = ((src[2] >> 3)) +
                 ((src[1] >> 2)<<5) +
-                ((src[2] >> 3)<<11);
+                ((src[0] >> 3)<<11);
       dst[1] = big >> 8;
       dst[0] = big & 255;
       dst+=2;
@@ -1390,6 +1388,9 @@ main (int argc, char **argv)
   init (&desired_width, &desired_height);
 
   parse_args (argc, argv);
+  time_remaining = delay;   /* do this initialization after
+                               argument parsing has settled down
+                             */
   images[images_c] = NULL;
 
   if (images_c <= 0)
