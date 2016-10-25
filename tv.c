@@ -216,6 +216,13 @@ TvOutput init (int *dw, int *dh)
     *dh = vinfo.yres;
 
     fb_bpp = vinfo.bits_per_pixel;
+    if (fb_bpp == 16)
+    {
+      fb_bpp = vinfo.red.length +
+               vinfo.green.length +
+               vinfo.blue.length;
+    }
+
     fb_stride = finfo.line_length;
     fb_mapped_size = finfo.smem_len;
 
@@ -1050,13 +1057,44 @@ void palcount_to_levels (int palcount,
   }
 }
 
-static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count)
+static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count,
+                                int y, int x)
 {
+  int red_levels = (1 << 5);
+  int green_levels = (1 << 6);
+  int blue_levels = (1 << 5);
+
   while (count--)
     {
-      int big = ((src[2] >> 3)) +
-                ((src[1] >> 2)<<5) +
-                ((src[0] >> 3)<<11);
+      int dithered[3] = {0,0,0};
+          {
+            dithered[0] = src[0];
+            dithered[1] = src[1];
+            dithered[2] = src[2];
+            if (do_dither)
+            {
+              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
+              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
+              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
+            }
+            else
+            {
+              dithered[0] += 0.5 * 255/(red_levels-1);
+              dithered[1] += 0.5 * 255/(green_levels-1);
+              dithered[2] += 0.5 * 255/(blue_levels-1);
+            }
+            {
+              if (dithered[0] > 255) dithered[0] = 255;
+              if (dithered[1] > 255) dithered[1] = 255;
+              if (dithered[2] > 255) dithered[2] = 255;
+              if (dithered[0] < 0) dithered[0] = 0;
+              if (dithered[1] < 0) dithered[1] = 0;
+              if (dithered[2] < 0) dithered[2] = 0;
+            }
+          }
+      int big = ((dithered[2] * (blue_levels-1) / 255)) +
+                ((dithered[1] * (green_levels-1) / 255) << 5) +
+                ((dithered[0] * (red_levels-1) / 255) << 11);
       dst[1] = big >> 8;
       dst[0] = big & 255;
       dst+=2;
@@ -1064,13 +1102,16 @@ static inline void memcpy32_16 (uint8_t *dst, const uint8_t *src, int count)
     }
 }
 
-static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count)
+static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count,
+                                int y, int x)
 {
   while (count--)
     {
-      int big = ((src[2] >> 3)) +
-                ((src[1] >> 3)<<5) +
-                ((src[0] >> 3)<<10);
+      int big = ((src[2] >> 3)) 
+              + ((src[1] >> 3)<<5) +
+                ((src[0] >> 3)<<10)
+                
+                ;
       dst[1] = big >> 8;
       dst[0] = big & 255;
       dst+=2;
@@ -1078,7 +1119,8 @@ static inline void memcpy32_15 (uint8_t *dst, const uint8_t *src, int count)
     }
 }
 
-static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count)
+static inline void memcpy32_8 (uint8_t *dst, const uint8_t *src, int count,
+                               int y, int x)
 {
   while (count--)
     {
@@ -1590,13 +1632,13 @@ interactive_load_image:
                     memcpy32_24 (dst, src, outw);
                     break;
                   case 16:
-                    memcpy32_16 (dst, src, outw);
+                    memcpy32_16 (dst, src, outw, scan, 0);
                     break;
                   case 15:
-                    memcpy32_15 (dst, src, outw);
+                    memcpy32_15 (dst, src, outw, scan, 0);
                     break;
                   case 8:
-                    memcpy32_8 (dst, src, outw);
+                    memcpy32_8 (dst, src, outw, scan, 0);
                     break;
                 }
             }
