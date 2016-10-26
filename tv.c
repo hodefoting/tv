@@ -489,14 +489,15 @@ EvReaction cmd_rotate (void)
   return REDRAW;
 }
 
-EvReaction cmd_jump (void)
+int read_number (void)
 {
-  int val = 0;
-
-  fprintf (stderr, "\rjump to: [K");
   char buf[10];
   int count = 0;
   int length = 0;
+  int val = 0;
+
+  fprintf (stderr, "[K");
+
   while ((length=read (STDIN_FILENO, &buf[0], 10)) >= 0)
   {
      if (buf[0] == 127)
@@ -511,11 +512,7 @@ EvReaction cmd_jump (void)
      } else
      if (buf[0] == 10)
      {
-        /* */
-        image_no = val - 1;
-        if (image_no >= images_c)
-          image_no = images_c - 1;
-        return RELOAD;
+        return val;
      } else
      {
        if (buf[0] >= '0' && buf[0] <= '9')
@@ -527,7 +524,17 @@ EvReaction cmd_jump (void)
        }
      }
   }
-  return REDRAW;
+}
+
+EvReaction cmd_jump (void)
+{
+  int val;
+  fprintf (stderr, "\rjump to: ");
+  val = read_number ();
+  image_no = val - 1;
+  if (image_no >= images_c)
+  image_no = images_c - 1;
+  return RELOAD;
 }
 
 EvReaction cmd_slideshow (void)
@@ -710,6 +717,10 @@ Action actions[] = {
   {"[B",     cmd_down},
   {"[C",     cmd_right},
   {"[D",     cmd_left},
+  {"OA",     cmd_up},
+  {"OB",     cmd_down},
+  {"OC",     cmd_right},
+  {"OD",     cmd_left},
   {" ",        cmd_next},
   {"",       cmd_prev},
   {"[5~",    cmd_prev},
@@ -762,7 +773,7 @@ EvReaction handle_input (void)
          if (!strcmp (actions[i].input, buf))
            return actions[i].handler();
 
-       if (verbosity > 2)
+       if (verbosity > 1)
        {
          int i = 0;
          if (!message)
