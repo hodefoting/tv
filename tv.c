@@ -537,6 +537,15 @@ EvReaction cmd_jump (void)
   return RELOAD;
 }
 
+EvReaction cmd_set_delay (void)
+{
+  int val;
+  fprintf (stderr, "\rnew delay: ");
+  val = read_number ();
+  delay = val;
+  return REDRAW;
+}
+
 EvReaction cmd_slideshow (void)
 {
   slideshow = !slideshow;
@@ -746,6 +755,7 @@ Action actions[] = {
   {"r",        cmd_rotate},
   {"?",        cmd_help},
   {"j",        cmd_jump},
+  {"S",        cmd_set_delay},
   {NULL, NULL}
 };
 
@@ -1039,8 +1049,12 @@ void resample_image (const unsigned char *image,
             int z, q;
             int c = 0;
             int offset2;
-            for (q = q0; q<=q1; q++)
-              for (z = z0; z<=z1; z++)
+
+            if (q1 == q0) q1 = q0+1;
+            if (z1 == z0) z1 = z0+1;
+
+            for (q = q0; q<q1; q++)
+              for (z = z0; z<z1; z++)
                 {
                   switch (rotate)
                   {
@@ -1575,13 +1589,9 @@ interactive_load_image:
     interactive_again:
     if (0){}
 
-    // image = rescale_image (image, &w, &h, desired_width, desired_height);
     int outw = desired_width;
     int outh = desired_height;
                
-    //if (interactive)
-    //  print_status ();
-
     {
       unsigned char *rgba = calloc (outw * 4 * outh, 1);
 
