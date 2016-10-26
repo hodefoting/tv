@@ -524,6 +524,7 @@ int read_number (void)
        }
      }
   }
+  return -1; // not reached
 }
 
 EvReaction cmd_jump (void)
@@ -996,12 +997,12 @@ image_load (const char *path,
             int        *stride);
 
 void resample_image (const unsigned char *image,
-                     unsigned char *rgba,
-                     int         outw,
-                     int         outh,
-                     float       x_offset,
-                     float       y_offset,
-                     float       factor)
+                     unsigned char       *rgba,
+                     int                  outw,
+                     int                  outh,
+                     float                x_offset,
+                     float                y_offset,
+                     float                factor)
 {
   int y, x;
   int i = 0;
@@ -1305,8 +1306,8 @@ void dither_rgba (const unsigned char *rgba,
 
              pal[offset/4] = 0 + 
                 (dithered[0] * (red_levels-1)   / 255) * blue_levels * green_levels+
-                (dithered[2] * (blue_levels-1)  / 255) * green_levels + 
-                (dithered[1] * (green_levels-1)  / 255);
+                (dithered[1] * (green_levels-1)  / 255) * blue_levels + 
+                (dithered[2] * (blue_levels-1)  / 255);
             }
           }
          else 
@@ -1358,8 +1359,8 @@ void blit_sixel_pal (unsigned int        *pal,
 
   int palno = 0;
   for (red   = 0; red   < red_max; red++)
-  for (blue  = 0; blue  < blue_max; blue++)
   for (green = 0; green < green_max; green++)
+  for (blue  = 0; blue  < blue_max; blue++)
   {
     if (grayscale)
       sixel_outf ( "#%d;2;%d;%d;%d", palno, green * 100/(green_levels-1),
@@ -1376,8 +1377,8 @@ void blit_sixel_pal (unsigned int        *pal,
   {
     palno=0;
     for (red   = 0; red   < red_max;   red++)
-    for (blue  = 0; blue  < blue_max;  blue++)
     for (green = 0; green < green_max; green++)
+    for (blue  = 0; blue  < blue_max;  blue++)
     {
       int setpal = 0;
 
@@ -1646,7 +1647,8 @@ interactive_load_image:
         case TV_UTF8:
           {
             unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-            dither_rgba (rgba, pal, outw * 4, outw, outh, 1, 2, 0);
+            dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
+
             if (!stdin_got_data (1))
             {
               int x, y;
@@ -1658,14 +1660,69 @@ interactive_load_image:
  static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
                   int bitmask = 0;
                   int o = y * outw + x;
+                  int rgbo = y * outw * 4 + x * 4;
 
-                  if (pal[o]!=0)        bitmask |= (1<<0); //1
-                  if (pal[o+1]!=0)      bitmask |= (1<<1); //2
-                  if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
-                  if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
+                  int colors[4]={0,0,0,0};
+                  int counts[4]={0,0,0,0};
+                  int max = 0;
+                  int maxc = 0;
+                  int secondmax = -1;
+                  int secondmaxc = 0;
+                  int c = 0;
+                  int u, v;
+                  for (u = 0; u < 2; u++)
+                  for (v = 0; v < 2; v++)
+                    {
+                      int found = 0;
+
+                      for (int i = 0; i < c && !found; i++)
+                      {
+                        if (colors[i] == pal[o+outw*v+u])
+                        {
+                          counts[i]++;
+                          found = 1;
+                        }
+                      }
+                      if (!found)
+                      {
+                        colors[c] = pal[o+outw*v+u];
+                        counts[c] = 1;
+                        c++;
+                      }
+                    }
+                  for (int i = 0; i < c; i++)
+                  {
+                    if (counts[i]>=max)
+                    {
+                      max = counts[i];
+                      maxc = colors[i];
+                    }
+                  }
+                  secondmaxc = maxc;
+                  secondmax = -1;
+                  for (int i = 0; i < c; i++)
+                  {
+                    if (counts[i]>=secondmax && colors[i] != maxc)
+                    {
+                      secondmax = counts[i];
+                      secondmaxc = colors[i];
+                    }
+                  }
+
+
+                  bitmask = 0;
+                  if (pal[o]==maxc)        bitmask |= (1<<0); //1
+                  if (pal[o+1]==maxc)      bitmask |= (1<<1); //2
+                  if (pal[o+outw]==maxc)   bitmask |= (1<<2); //4
+                  if (pal[o+outw+1]==maxc) bitmask |= (1<<3); //8
+
+                  sixel_outf("[38;5;%im", 16 + maxc);
+                  sixel_outf("[48;5;%im", 16 + secondmaxc);
+
                   sixel_outf(utf8_quarts[bitmask]);
                 }
               sixel_outf ("\n");
+              sixel_outf("[0m");
             }
           }
           free (pal);
