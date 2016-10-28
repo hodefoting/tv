@@ -258,10 +258,18 @@ TvOutput init (int *dw, int *dh)
 
   if (tv_mode == TV_ASCII || tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
   {
-    *dw = size.ws_col * 2;
-    *dh = size.ws_row * 2;
+    if (tv_mode == TV_UTF8)
+    {
+      *dw = size.ws_col * 4;
+      *dh = size.ws_row * 4;
+    }
+    else
+    {
+      *dw = size.ws_col * 2;
+      *dh = size.ws_row * 2;
+    }
 
-    aspect = 1.8;
+    aspect = 1.9;
     if (tv_mode != TV_AUTO)
       return tv_mode;
     return TV_ASCII;
@@ -1459,6 +1467,274 @@ int sixel_is_supported (void)
   return inited;
 }
 
+typedef struct UnicodeGlyph
+{
+  const char *utf8;
+  uint16_t    bitmap;
+} UnicodeGlyph;
+
+UnicodeGlyph glyphs[]={{
+        
+" ", 0b\
+0000\
+0000\
+0000\
+0000},{
+
+"▪", 0b\
+0000\
+0110\
+0110\
+0000},{
+
+"◆", 0b\
+0100\
+1110\
+0111\
+0010},{
+ 
+"╱", 0b\
+0001\
+0010\
+0100\
+1000},{
+
+"╳", 0b\
+1001\
+0110\
+0110\
+1001},{
+
+"╲", 0b\
+1000\
+0100\
+0010\
+0001},{
+
+#if 0
+"◢", 0b\
+0001\
+0011\
+0111\
+1111},{
+
+"◣", 0b\
+1000\
+1100\
+1110\
+1111},{
+
+"◤", 0b\
+1111\
+1110\
+1100\
+1000},{
+
+"◥", 0b\
+1111\
+0111\
+0011\
+0001},{
+#endif
+
+"⬩", 0b\
+0000\
+0100\
+0000\
+0000},{
+
+"T", 0b\
+0000\
+1110\
+0100\
+0100},{
+
+"L", 0b\
+1000\
+1000\
+1110\
+0000},{
+
+"\"", 0b\
+1010\
+1010\
+0000\
+0000},{
+
+"`", 0b\
+1000\
+0100\
+0000\
+0000},{
+
+".", 0b\
+0000\
+0000\
+0010\
+0000},{
+
+"╋", 0b\
+0100\
+1111\
+0100\
+0100},{
+
+"+", 0b\
+0100\
+1110\
+0100\
+0000},{
+
+"-", 0b\
+0000\
+1110\
+0000\
+0000},{
+
+
+"▎", 0b\
+1000\
+1000\
+1000\
+1000},{
+
+"┃", 0b\
+0110\
+0110\
+0110\
+0110},{
+
+"│", 0b\
+0100\
+0100\
+0100\
+0100},{
+
+"▕", 0b\
+0001\
+0001\
+0001\
+0001},{
+
+"━", 0b\
+0000\
+1111\
+1111\
+0000},{
+
+"─", 0b\
+0000\
+0000\
+1111\
+0000},{
+
+"▘", 0b\
+1100\
+1100\
+0000\
+0000},{
+
+"▝", 0b\
+0011\
+0011\
+0000\
+0000},{
+
+"▀", 0b\
+1111\
+1111\
+0000\
+0000},{
+        
+"▖", 0b\
+1111\
+1111\
+0000\
+0000},{
+
+"▌", 0b\
+1100\
+1100\
+1100\
+1100},{
+        
+"▞", 0b\
+0011\
+0011\
+1100\
+1100},{
+        
+"▛", 0b\
+1111\
+1111\
+1100\
+1100  },{
+        
+"▗", 0b\
+0000\
+0000\
+0011\
+0011},{
+        
+"▚", 0b\
+1100\
+1100\
+0011\
+0011},{
+        
+"▐", 0b\
+0011\
+0011\
+0011\
+0011},{
+        
+"▜", 0b\
+1111\
+1111\
+0011\
+0011},{
+        
+"▄", 0b\
+0000\
+0000\
+1111\
+1111},{
+        
+"▙", 0b\
+1100\
+1100\
+1111\
+1111},{
+        
+"▟", 0b\
+0011\
+0011\
+1111\
+1111},{
+        
+"█", 0b\
+1111\
+1111\
+1111\
+1111},{
+
+"▂", 0b\
+0000\
+0000\
+0000\
+1111},{
+
+"▅", 0b\
+0000\
+1111\
+1111\
+1111},{
+
+
+
+NULL, 0}
+};
+
 int
 main (int argc, char **argv)
 {
@@ -1611,36 +1887,23 @@ interactive_load_image:
           break;
 
         case TV_UTF8:
-          if (0)
+          if (1)
           {
             //unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
             //dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
 
             if (!stdin_got_data (1))
             {
-              uint32_t mask = 0xc0c0c0c0;
-              //uint32_t mask = 0xf0f0f0f0;
-              //uint32_t mask = 0xffffffff;
-              /* quantize a little */
-              if(0)for (int y = 0; y < outh; y++)
-              {
-                for (int x = 0; x < outw; x++)
-                {
-                  int rgbo = y * outw * 4 + x * 4;
-                  rgba[rgbo + 0] &= mask;
-                  rgba[rgbo + 1] &= mask; 
-                  rgba[rgbo + 2] &= mask;
-                  rgba[rgbo + 3] = 255;
-                }
-              }
+              /* quantization used for approximate matches */
+              uint32_t mask = 0x80808080;
+              //uint32_t mask = 0xc0c0c0c0;
 
-              for (int y = 0; y < outh-2; y+=2)
+              for (int y = 0; y < outh-4; y+=4)
               {
-                for (int x = 0; x < outw; x+=2)
+                for (int x = 0; x < outw; x+=4)
                 {
- //static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
-                  static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
-                  int bitmask = 0;
+                  int best_glyph = 0;
+                  int best_matches = 0;
                   int rgbo = y * outw * 4 + x * 4;
 
                   uint32_t maxc = 0;
@@ -1650,8 +1913,8 @@ interactive_load_image:
                   int max = 0;
                   int secondmax = 0;
                   int c = 0;
-                  for (int u = 0; u < 2; u++)
-                  for (int v = 0; v < 2; v++)
+                  for (int u = 0; u < 4; u++)
+                  for (int v = 0; v < 4; v++)
                     {
                       int found = 0;
                       for (int i = 0; i < c && found==0; i++)
@@ -1690,23 +1953,47 @@ interactive_load_image:
 
                   if (maxc == secondmaxc )
                   {
-                    secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 4]));
+                    secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 8]));
                     if (maxc == secondmaxc)
                       secondmaxc= *((uint32_t*)(&rgba[rgbo+4]));
                     if (maxc == secondmaxc)
-                      secondmaxc= *((uint32_t*)(&rgba[rgbo+4*outw]));
+                      secondmaxc= *((uint32_t*)(&rgba[rgbo+8*outw]));
                   }
 
-                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo])))&mask))          bitmask |= 1;
-                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+4])))&mask))        bitmask |= 2;
-                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+outw*4])))&mask))   bitmask |= 4;
-                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+outw*4+4])))&mask )) bitmask |= 8;
+                  for (int i = 0; glyphs[i].utf8; i++)
+                  {
+                    int matches = 0;
+                    int bitno = 0;
+                    //for (int v = 0; v < 4; v ++)
+                      for (int v = 3; v >=0; v --)
+                      for (int u = 3; u >=0; u --)
+                      {
+                        int bit = ((secondmaxc & mask) != 
+                        ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
+                        if (bit)
+                        {
+                          if (glyphs[i].bitmap & (1<<bitno))
+                            matches ++;
+                        }
+                        else
+                        {
+                          if (glyphs[i].bitmap & (1<<bitno) == 0)
+                            matches ++;
+                        }
+                        bitno++;
+                      }
+                    if (matches > best_matches)
+                    {
+                      best_matches = matches;
+                      best_glyph = i;
+                    }
+                  }
 
                   sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
                   sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
 
                   //sixel_outf("P");
-                  sixel_outf(utf8_quarts[bitmask]);
+                  sixel_outf(glyphs[best_glyph].utf8);
                 }
               sixel_outf ("\n");
               sixel_outf("[0m");
