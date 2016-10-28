@@ -13,6 +13,7 @@
 #include <linux/vt.h>
 #include <sys/mman.h>
 #include <stdint.h>
+#include <assert.h>
 
 #define HAVE_JPEG
 #define HAVE_PNG
@@ -32,11 +33,6 @@ float aspect = 1.0;
 #define SKIP_FULL_BLANK_ROWS 1
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
-
-// DELTA_FRAMES works with xterm but are slow, with mlterm each sixel context
-// starts off with background-color colored data, rather than the original data
-// of the framebuffer at the location.
-//#define DELTA_FRAME 1
 
 void sixel_out_char (int ch)
 {
@@ -161,10 +157,6 @@ int images_c = 0;
 int status_y = 25;
 int status_x = 1;
 
-#ifdef DELTA_FRAME
-int *fb = NULL;
-#endif
-
 int loop = 1;
 int fb_bpp = 1;
 int fb_mapped_size = 1;
@@ -263,14 +255,6 @@ TvOutput init (int *dw, int *dh)
 
     return TV_FB;
   }
-
-#ifdef DELTA_FRAME
-  if (fb)
-    free (fb);
-  fb = malloc (sizeof(int)* *dw * (*dh + 4) );
-  for (int i =0; i < *dw * *dh; i++)
-    fb[i] = -1;
-#endif
 
   if (tv_mode == TV_ASCII || tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
   {
@@ -1239,10 +1223,6 @@ void dither_rgba (const unsigned char *rgba,
                   int                  grayscale,
                   int                  palcount,
                   int                  transparency
-#ifdef DELTA_FRAME
-                 ,
-                  int                 *fb
-#endif
                  )
 {
   int red_levels   = 2;
@@ -1329,10 +1309,6 @@ void blit_sixel_pal (unsigned int        *pal,
                      int                  grayscale,
                      int                  palcount,
                      int                  transparency
-#ifdef DELTA_FRAME
-                 ,
-                      int                 *fb
-#endif
                  )
 {
   int red, green, blue;
@@ -1368,8 +1344,8 @@ void blit_sixel_pal (unsigned int        *pal,
                                      green * 100/(green_levels-1));
     else  
       sixel_outf ( "#%d;2;%d;%d;%d", palno, red * 100/(red_levels-1),
-                                           green * 100/(green_levels-1),
-                                           blue * 100/(blue_levels-1));
+                                            green * 100/(green_levels-1),
+                                            blue * 100/(blue_levels-1));
     palno++;
   }
 
@@ -1396,19 +1372,8 @@ void blit_sixel_pal (unsigned int        *pal,
             got_coverage = pal[offset+3] >= 0;
 
             if (got_coverage)
-              {
-                if (pal[offset/4] == palno)
-                  
-#ifdef DELTA_FRAME
-                    if (fb[(y+v) * outw + x] != palno)
-                    {
-                      fb[(y+v) * outw + x] = palno;
-#endif
-                      sixel |= (1<<v);
-#ifdef DELTA_FRAME
-                    }
-#endif
-              }
+              if (pal[offset/4] == palno)
+                sixel |= (1<<v);
           }
 
           if (sixel && !setpal)
@@ -1644,7 +1609,112 @@ interactive_load_image:
             free (pal);
           }
           break;
+
         case TV_UTF8:
+          if (0)
+          {
+            //unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+            //dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
+
+            if (!stdin_got_data (1))
+            {
+              uint32_t mask = 0xc0c0c0c0;
+              //uint32_t mask = 0xf0f0f0f0;
+              //uint32_t mask = 0xffffffff;
+              /* quantize a little */
+              if(0)for (int y = 0; y < outh; y++)
+              {
+                for (int x = 0; x < outw; x++)
+                {
+                  int rgbo = y * outw * 4 + x * 4;
+                  rgba[rgbo + 0] &= mask;
+                  rgba[rgbo + 1] &= mask; 
+                  rgba[rgbo + 2] &= mask;
+                  rgba[rgbo + 3] = 255;
+                }
+              }
+
+              for (int y = 0; y < outh-2; y+=2)
+              {
+                for (int x = 0; x < outw; x+=2)
+                {
+ //static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
+                  static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
+                  int bitmask = 0;
+                  int rgbo = y * outw * 4 + x * 4;
+
+                  uint32_t maxc = 0;
+                  uint32_t secondmaxc = 0;
+                  int counts[4]={0,0,0,0};
+                  uint32_t colors[4]={0,0,0,0};
+                  int max = 0;
+                  int secondmax = 0;
+                  int c = 0;
+                  for (int u = 0; u < 2; u++)
+                  for (int v = 0; v < 2; v++)
+                    {
+                      int found = 0;
+                      for (int i = 0; i < c && found==0; i++)
+                      {
+                        if ((colors[i] & mask) == 
+                            (*((uint32_t*)(&rgba[rgbo+outw*4*v+u*4])) & mask))
+                        {
+                          counts[i]++;
+                          found = 1;
+                        }
+                      }
+                      if (!found)
+                      {
+                        colors[c] = *((uint32_t*)(&rgba[rgbo+outw*4*v+u*4]));
+                        counts[c] = 1;
+                        c++;
+                      }
+                    }
+                  for (int i = 0; i < c; i++)
+                  {
+                    if (counts[i]>=max)
+                    {
+                      max = counts[i];
+                      maxc = colors[i];
+                    }
+                  }
+                  secondmaxc = maxc;
+                  for (int i = 0; i < c; i++)
+                  {
+                    if (counts[i]>=secondmax && colors[i] != maxc)
+                    {
+                      secondmax = counts[i];
+                      secondmaxc = colors[i];
+                    }
+                  }
+
+                  if (maxc == secondmaxc )
+                  {
+                    secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 4]));
+                    if (maxc == secondmaxc)
+                      secondmaxc= *((uint32_t*)(&rgba[rgbo+4]));
+                    if (maxc == secondmaxc)
+                      secondmaxc= *((uint32_t*)(&rgba[rgbo+4*outw]));
+                  }
+
+                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo])))&mask))          bitmask |= 1;
+                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+4])))&mask))        bitmask |= 2;
+                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+outw*4])))&mask))   bitmask |= 4;
+                  if ((secondmaxc & mask)!= ((*((uint32_t*)(&rgba[rgbo+outw*4+4])))&mask )) bitmask |= 8;
+
+                  sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
+                  sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+
+                  //sixel_outf("P");
+                  sixel_outf(utf8_quarts[bitmask]);
+                }
+              sixel_outf ("\n");
+              sixel_outf("[0m");
+            }
+          }
+          //free (pal);
+          }
+          else
           {
             unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
             dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
@@ -1779,9 +1849,6 @@ interactive_load_image:
       dither_rgba (rgba, pal, outw * 4, outw, outh, grayscale, palcount, 0);
       if (!stdin_got_data (1))
       blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, grayscale, palcount, 0
-#ifdef DELTA_FRAME
-                  ,fb
-#endif
                   );
       free (pal);
            }
