@@ -257,7 +257,7 @@ TvOutput init (int *dw, int *dh)
 
   if (tv_mode == TV_ASCII || tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
   {
-    if (tv_mode == TV_UTF8)
+    if (tv_mode == TV_UTF8 || tv_mode == TV_AUTO)
     {
       *dw = size.ws_col * 4;
       *dh = size.ws_row * 4;
@@ -271,8 +271,8 @@ TvOutput init (int *dw, int *dh)
     aspect = 1.9;
     if (tv_mode != TV_AUTO)
       return tv_mode;
-    return TV_ASCII;
     return TV_UTF8;
+    return TV_ASCII;
   }
 
   return TV_SIXEL;
@@ -1495,44 +1495,6 @@ UnicodeGlyph glyphs[]={{
 0000\
 0000},{
 
-"▂", 0b\
-0000\
-0000\
-0000\
-1111},{
-
-"▪", 0b\
-0000\
-0110\
-0110\
-0000},{
-
-
-"▪", 0b\
-0000\
-0010\
-0110\
-0000},{
-
-
-"▪", 0b\
-0000\
-0110\
-0100\
-0000},{
-
-
-"▪", 0b\
-0000\
-0100\
-0110\
-0000},{
-
-"▪", 0b\
-0000\
-0110\
-0010\
-0000},{
 
 "▘", 0b\
 1100\
@@ -1625,8 +1587,87 @@ UnicodeGlyph glyphs[]={{
 1111},{
 
 
+"⬩", 0b\
+0000\
+0100\
+0000\
+0000},{
+
+"▪", 0b\
+0000\
+0110\
+0110\
+0000},{
+
+
+"▎", 0b\
+1000\
+1000\
+1000\
+1000},{
+
+"┃", 0b\
+0110\
+0110\
+0110\
+0110},{
+
+"│", 0b\
+0100\
+0100\
+0100\
+0100},{
+
+"▕", 0b\
+0001\
+0001\
+0001\
+0001},{
+
+"━", 0b\
+0000\
+1111\
+1111\
+0000},{
+
+
+"▂", 0b\
+0000\
+0000\
+0000\
+1111},{
+
+
 #if 1
 
+
+
+
+"▪", 0b\
+0000\
+0010\
+0110\
+0000},{
+
+
+"▪", 0b\
+0000\
+0110\
+0100\
+0000},{
+
+
+"▪", 0b\
+0000\
+0100\
+0110\
+0000},{
+
+"▪", 0b\
+0000\
+0110\
+0010\
+0000},{
 
 "▅", 0b\
 0000\
@@ -1660,37 +1701,6 @@ UnicodeGlyph glyphs[]={{
 0001},{
 
 
-
-"▎", 0b\
-1000\
-1000\
-1000\
-1000},{
-
-"┃", 0b\
-0110\
-0110\
-0110\
-0110},{
-
-"│", 0b\
-0100\
-0100\
-0100\
-0100},{
-
-"▕", 0b\
-0001\
-0001\
-0001\
-0001},{
-
-"━", 0b\
-0000\
-1111\
-1111\
-0000},{
-
 "─", 0b\
 0000\
 0000\
@@ -1700,11 +1710,6 @@ UnicodeGlyph glyphs[]={{
 
 
 #if 1
-"⬩", 0b\
-0000\
-0100\
-0000\
-0000},{
 
 "T", 0b\
 0000\
@@ -1748,13 +1753,18 @@ UnicodeGlyph glyphs[]={{
 0100\
 0000},{
 
+"=", 0b\
+1110\
+0000\
+1110\
+0000},{
+
 "-", 0b\
 0000\
 1110\
 0000\
 0000},{
 #endif
-
 
 
 #if 0
@@ -1769,6 +1779,8 @@ UnicodeGlyph glyphs[]={{
 1100\
 1110\
 1111},{
+#endif
+#if 1
 
 "◤", 0b\
 1111\
@@ -2013,16 +2025,6 @@ interactive_load_image:
                       secondmaxc = colors[i];
                     }
                   }
-#if 0
-                  if (maxc == secondmaxc )
-                  {
-                    secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 8]));
-                    if (maxc == secondmaxc)
-                      secondmaxc= *((uint32_t*)(&rgba[rgbo+4]));
-                    if (maxc == secondmaxc)
-                      secondmaxc= *((uint32_t*)(&rgba[rgbo+8*outw]));
-                  }
-#endif
 
                   /* do second run in inverse video  */
                   for (int i = 0; glyphs[i].utf8; i++)
@@ -2047,7 +2049,7 @@ interactive_load_image:
                             matches ++;
                         } else if (col2)
                         {
-                          if (glyphs[i].bitmap & (1<<bitno) == 0)
+                          if ((glyphs[i].bitmap & (1<<bitno)) == 0)
                             matches ++;
                         }
                         bitno++;
@@ -2062,7 +2064,10 @@ interactive_load_image:
                   sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
                   sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
 
+                  //if (best_glyph >= 16)
                   sixel_outf(glyphs[best_glyph].utf8);
+                  //else
+                  //sixel_outf(".");
                 }
               sixel_outf ("\n");
               sixel_outf("[0m");
