@@ -1586,7 +1586,6 @@ UnicodeGlyph glyphs[]={{
 1111\
 1111},{
 
-
 "⬩", 0b\
 0000\
 0100\
@@ -1612,24 +1611,11 @@ UnicodeGlyph glyphs[]={{
 0110\
 0110},{
 
-"│", 0b\
-0100\
-0100\
-0100\
-0100},{
-
 "▕", 0b\
 0001\
 0001\
 0001\
 0001},{
-
-"━", 0b\
-0000\
-1111\
-1111\
-0000},{
-
 
 "▂", 0b\
 0000\
@@ -1637,44 +1623,46 @@ UnicodeGlyph glyphs[]={{
 0000\
 1111},{
 
-
-#if 1
-
-
-
-
-"▪", 0b\
-0000\
-0010\
-0110\
-0000},{
-
-
-"▪", 0b\
-0000\
-0110\
-0100\
-0000},{
-
-
-"▪", 0b\
-0000\
-0100\
-0110\
-0000},{
-
-"▪", 0b\
-0000\
-0110\
-0010\
-0000},{
-
-"▅", 0b\
+"▆", 0b\
 0000\
 1111\
 1111\
 1111},{
 
+
+"▊", 0b\
+1110\
+1110\
+1110\
+1110},{
+
+#if 1
+
+"▪", 0b\
+0000\
+0010\
+0110\
+0000},{
+
+
+"▪", 0b\
+0000\
+0110\
+0100\
+0000},{
+
+
+"▪", 0b\
+0000\
+0100\
+0110\
+0000},{
+
+"▪", 0b\
+0000\
+0110\
+0010\
+0000},{
 
 "◆", 0b\
 0100\
@@ -1700,7 +1688,6 @@ UnicodeGlyph glyphs[]={{
 0010\
 0001},{
 
-
 "─", 0b\
 0000\
 0000\
@@ -1709,8 +1696,6 @@ UnicodeGlyph glyphs[]={{
 #endif
 
 
-#if 1
-
 "T", 0b\
 0000\
 1110\
@@ -1718,9 +1703,9 @@ UnicodeGlyph glyphs[]={{
 0100},{
 
 "L", 0b\
-1000\
-1000\
-1110\
+0000\
+0100\
+0110\
 0000},{
 
 "\"", 0b\
@@ -1741,11 +1726,24 @@ UnicodeGlyph glyphs[]={{
 0010\
 0000},{
 
-"╋", 0b\
-0100\
+
+"┃", 0b\
+0110\
+0110\
+0110\
+0110},{
+
+"━", 0b\
+0000\
 1111\
-0100\
-0100},{
+1111\
+0000},{
+
+"╋", 0b\
+0110\
+1111\
+1111\
+0110},{
 
 "+", 0b\
 0100\
@@ -1764,36 +1762,6 @@ UnicodeGlyph glyphs[]={{
 1110\
 0000\
 0000},{
-#endif
-
-
-#if 0
-"◢", 0b\
-0001\
-0011\
-0111\
-1111},{
-
-"◣", 0b\
-1000\
-1100\
-1110\
-1111},{
-#endif
-#if 1
-
-"◤", 0b\
-1111\
-1110\
-1100\
-1000},{
-
-"◥", 0b\
-1111\
-0111\
-0011\
-0001},{
-#endif
 
 NULL, 0}
 };
@@ -1960,17 +1928,17 @@ interactive_load_image:
           break;
 
         case TV_UTF8:
-          if (1)
           {
-            //unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-            //dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
-
-            //if (!stdin_got_data (1))
+            if (!stdin_got_data (1))
             {
+              if (interactive)
+                term_home ();
               /* quantization used for approximate matches */
+              //uint32_t mask = 0xf8fcf8f8;
+              uint32_t mask = 0xf0f0f0f0;
+              //uint32_t mask = 0xc0c0c0c0;
               //uint32_t mask = 0x80808080;
-              uint32_t mask = 0xc0c0c0c0;
-              //uint32_t mask = 0xf0f0f0f0;
+              //uint32_t mask = 0xffffffff;
 
               for (int y = 0; y < outh-4; y+=4)
               {
@@ -1978,12 +1946,13 @@ interactive_load_image:
                 {
                   int best_glyph = 0;
                   int best_matches = 0;
+                  int best_is_inverted = 0;
                   int rgbo = y * outw * 4 + x * 4;
 
                   uint32_t maxc = 0;
                   uint32_t secondmaxc = 0;
-                  int counts[4]={0,0,0,0};
-                  uint32_t colors[4]={0,0,0,0};
+                  int counts[16]={0,0,0,0};
+                  uint32_t colors[16]={0,0,0,0};
                   int max = 0;
                   int secondmax = 0;
                   int c = 0;
@@ -2026,7 +1995,6 @@ interactive_load_image:
                     }
                   }
 
-                  /* do second run in inverse video  */
                   for (int i = 0; glyphs[i].utf8; i++)
                   {
                     int matches = 0;
@@ -2058,105 +2026,66 @@ interactive_load_image:
                     {
                       best_matches = matches;
                       best_glyph = i;
+                      best_is_inverted = 0;
                     }
                   }
 
-                  sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
-                  sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
 
-                  //if (best_glyph >= 16)
-                  sixel_outf(glyphs[best_glyph].utf8);
-                  //else
-                  //sixel_outf(".");
-                }
-              sixel_outf ("\n");
-              sixel_outf("[0m");
-            }
-          }
-          //free (pal);
-          }
-          else
-          {
-            unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-            dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
-
-            if (!stdin_got_data (1))
-            {
-              int x, y;
-              for (y = 0; y < outh-2; y+=2)
-              {
-                for (x = 0; x < outw; x+=2)
-                {
- //static char *utf8_gray_scale[]={" ","░","▒","▓","█","█", NULL};
- static char *utf8_quarts[]={" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█",NULL};
-                  int bitmask = 0;
-                  int o = y * outw + x;
-                  int rgbo = y * outw * 4 + x * 4;
-
-                  int colors[4]={0,0,0,0};
-                  int counts[4]={0,0,0,0};
-                  int max = 0;
-                  int maxc = 0;
-                  int secondmax = -1;
-                  int secondmaxc = 0;
-                  int c = 0;
-                  int u, v;
-                  for (u = 0; u < 2; u++)
-                  for (v = 0; v < 2; v++)
-                    {
-                      int found = 0;
-
-                      for (int i = 0; i < c && !found; i++)
+                  /* do second run in inverse video  */
+                  for (int i = 20; glyphs[i].utf8; i++)
+                  {
+                    int matches = 0;
+                    int bitno = 0;
+                    for (int v = 3; v >=0; v --)
+                      for (int u = 3; u >=0; u --)
                       {
-                        if (colors[i] == pal[o+outw*v+u])
+                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+                        long d1 = coldiff(col, maxc);
+                        long d2 = coldiff(col, secondmaxc);
+                        int col1 = 0;
+                        int col2 = 0;
+
+                        if (d1 < d2) col1 = 1;
+                        else col2 = 1;
+
+                        if (col1)
                         {
-                          counts[i]++;
-                          found = 1;
+                          if ((!glyphs[i].bitmap) & (1<<bitno))
+                            matches ++;
+                        } else if (col2)
+                        {
+                          if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
+                            matches ++;
                         }
+                        bitno++;
                       }
-                      if (!found)
-                      {
-                        colors[c] = pal[o+outw*v+u];
-                        counts[c] = 1;
-                        c++;
-                      }
-                    }
-                  for (int i = 0; i < c; i++)
-                  {
-                    if (counts[i]>=max)
+                    if (matches >= best_matches)
                     {
-                      max = counts[i];
-                      maxc = colors[i];
-                    }
-                  }
-                  secondmaxc = maxc;
-                  secondmax = -1;
-                  for (int i = 0; i < c; i++)
-                  {
-                    if (counts[i]>=secondmax && colors[i] != maxc)
-                    {
-                      secondmax = counts[i];
-                      secondmaxc = colors[i];
+                      best_matches = matches;
+                      best_glyph = i;
+                      best_is_inverted = 1;
                     }
                   }
 
+                  /* XXX: re-calibrate color to actual best colors for glyph*/
 
-                  bitmask = 0;
-                  if (pal[o]==maxc)        bitmask |= (1<<0); //1
-                  if (pal[o+1]==maxc)      bitmask |= (1<<1); //2
-                  if (pal[o+outw]==maxc)   bitmask |= (1<<2); //4
-                  if (pal[o+outw+1]==maxc) bitmask |= (1<<3); //8
+                  if (best_is_inverted)
+                  {
+                    sixel_outf("[48;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
+                    sixel_outf("[38;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+                  }
+                  else
+                  {
+                    sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
+                    sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+                  }
 
-                  sixel_outf("[38;5;%im", 16 + maxc);
-                  sixel_outf("[48;5;%im", 16 + secondmaxc);
-
-                  sixel_outf(utf8_quarts[bitmask]);
+                  sixel_outf(glyphs[best_glyph].utf8);
                 }
               sixel_outf ("\n");
               sixel_outf("[0m");
             }
           }
-          free (pal);
           }
           break;
         case TV_FB:
