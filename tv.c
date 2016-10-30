@@ -1988,7 +1988,7 @@ interactive_load_image:
                       secondmaxc = colors[i];
                     }
                   }
-#if 1
+#if 0
                   if (maxc == secondmaxc )
                   {
                     secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 8]));
@@ -2004,32 +2004,30 @@ interactive_load_image:
                   {
                     int matches = 0;
                     int bitno = 0;
-                    //for (int v = 0; v < 4; v ++)
-                      for (int v = 3; v >=0; v --)
+                    for (int v = 3; v >=0; v --)
                       for (int u = 3; u >=0; u --)
                       {
-                        int bit = ((maxc & mask) == 
+                        int col = ((maxc & mask) == 
                         ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
-                        int bit2 = ((secondmaxc & mask) == 
+                        int col2 = ((secondmaxc & mask) == 
                         ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
 
-                        if (bit)
+                        if (col)
                         {
                           if (glyphs[i].bitmap & (1<<bitno))
+                            matches ++;
+                        } else if (col2)
+                        {
+                          if (glyphs[i].bitmap & (1<<bitno) == 0)
                             matches ++;
                         }
                         else
                         {
-                          if (glyphs[i].bitmap & (1<<bitno) == 0)
-                          {
-                            //matches ++;
-                            if (bit2)
-                              matches++;
-                          }
+                          matches--;
                         }
                         bitno++;
                       }
-                    if (matches >= best_matches)
+                    if (matches > best_matches)
                     {
                       best_matches = matches;
                       best_glyph = i;
