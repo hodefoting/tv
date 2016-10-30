@@ -170,7 +170,6 @@ static unsigned short ored[256], ogreen[256], oblue[256];
 static struct fb_cmap ocmap = {0, 256, ored, ogreen, oblue, NULL};
 int ocmap_used = 0;
 
-
 TvOutput init (int *dw, int *dh)
 {
   struct winsize size = {0,0,0,0};
@@ -632,7 +631,7 @@ EvReaction cmd_zoom_width (void)
 EvReaction cmd_center (void)
 {
   x_offset = -(desired_width - image_w / factor) / 2 * factor;
-  y_offset = -(desired_height - image_h / factor) / 2 * factor;
+  y_offset = -(desired_height - image_h / (factor * aspect)) / 2 * (factor * aspect);
 
   return REDRAW;
 }
@@ -641,8 +640,8 @@ EvReaction cmd_zoom_fit (void)
 {
   cmd_zoom_width ();
 
-  if (factor < 1.0 * image_h / desired_height)
-    factor = 1.0 * image_h / desired_height;
+  if (factor < 1.0 * image_h / desired_height / aspect)
+    factor = 1.0 * image_h / desired_height / aspect;
 
   return cmd_center ();
 }
@@ -1481,151 +1480,43 @@ UnicodeGlyph glyphs[]={{
 0000\
 0000},{
 
+"▂", 0b\
+0000\
+0000\
+0000\
+1111},{
+
 "▪", 0b\
 0000\
 0110\
 0110\
 0000},{
 
-"◆", 0b\
-0100\
-1110\
-0111\
-0010},{
- 
-"╱", 0b\
-0001\
-0010\
-0100\
-1000},{
 
-"╳", 0b\
-1001\
-0110\
-0110\
-1001},{
-
-"╲", 0b\
-1000\
-0100\
-0010\
-0001},{
-
-#if 0
-"◢", 0b\
-0001\
-0011\
-0111\
-1111},{
-
-"◣", 0b\
-1000\
-1100\
-1110\
-1111},{
-
-"◤", 0b\
-1111\
-1110\
-1100\
-1000},{
-
-"◥", 0b\
-1111\
-0111\
-0011\
-0001},{
-#endif
-
-"⬩", 0b\
-0000\
-0100\
-0000\
-0000},{
-
-"T", 0b\
-0000\
-1110\
-0100\
-0100},{
-
-"L", 0b\
-1000\
-1000\
-1110\
-0000},{
-
-"\"", 0b\
-1010\
-1010\
-0000\
-0000},{
-
-"`", 0b\
-1000\
-0100\
-0000\
-0000},{
-
-".", 0b\
-0000\
+"▪", 0b\
 0000\
 0010\
-0000},{
-
-"╋", 0b\
-0100\
-1111\
-0100\
-0100},{
-
-"+", 0b\
-0100\
-1110\
-0100\
-0000},{
-
-"-", 0b\
-0000\
-1110\
-0000\
-0000},{
-
-
-"▎", 0b\
-1000\
-1000\
-1000\
-1000},{
-
-"┃", 0b\
 0110\
-0110\
-0110\
-0110},{
-
-"│", 0b\
-0100\
-0100\
-0100\
-0100},{
-
-"▕", 0b\
-0001\
-0001\
-0001\
-0001},{
-
-"━", 0b\
-0000\
-1111\
-1111\
 0000},{
 
-"─", 0b\
+
+"▪", 0b\
 0000\
+0110\
+0100\
+0000},{
+
+
+"▪", 0b\
 0000\
-1111\
+0100\
+0110\
+0000},{
+
+"▪", 0b\
+0000\
+0110\
+0010\
 0000},{
 
 "▘", 0b\
@@ -1718,11 +1609,9 @@ UnicodeGlyph glyphs[]={{
 1111\
 1111},{
 
-"▂", 0b\
-0000\
-0000\
-0000\
-1111},{
+
+#if 1
+
 
 "▅", 0b\
 0000\
@@ -1731,6 +1620,153 @@ UnicodeGlyph glyphs[]={{
 1111},{
 
 
+"◆", 0b\
+0100\
+1110\
+0111\
+0010},{
+ 
+"╱", 0b\
+0001\
+0010\
+0100\
+1000},{
+
+"╳", 0b\
+1001\
+0110\
+0110\
+1001},{
+
+"╲", 0b\
+1000\
+0100\
+0010\
+0001},{
+
+
+
+"▎", 0b\
+1000\
+1000\
+1000\
+1000},{
+
+"┃", 0b\
+0110\
+0110\
+0110\
+0110},{
+
+"│", 0b\
+0100\
+0100\
+0100\
+0100},{
+
+"▕", 0b\
+0001\
+0001\
+0001\
+0001},{
+
+"━", 0b\
+0000\
+1111\
+1111\
+0000},{
+
+"─", 0b\
+0000\
+0000\
+1111\
+0000},{
+#endif
+
+
+#if 1
+"⬩", 0b\
+0000\
+0100\
+0000\
+0000},{
+
+"T", 0b\
+0000\
+1110\
+0100\
+0100},{
+
+"L", 0b\
+1000\
+1000\
+1110\
+0000},{
+
+"\"", 0b\
+1010\
+1010\
+0000\
+0000},{
+
+"`", 0b\
+1000\
+0100\
+0000\
+0000},{
+
+".", 0b\
+0000\
+0000\
+0010\
+0000},{
+
+"╋", 0b\
+0100\
+1111\
+0100\
+0100},{
+
+"+", 0b\
+0100\
+1110\
+0100\
+0000},{
+
+"-", 0b\
+0000\
+1110\
+0000\
+0000},{
+#endif
+
+
+
+#if 0
+"◢", 0b\
+0001\
+0011\
+0111\
+1111},{
+
+"◣", 0b\
+1000\
+1100\
+1110\
+1111},{
+
+"◤", 0b\
+1111\
+1110\
+1100\
+1000},{
+
+"◥", 0b\
+1111\
+0111\
+0011\
+0001},{
+#endif
 
 NULL, 0}
 };
@@ -1892,15 +1928,16 @@ interactive_load_image:
             //unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
             //dither_rgba (rgba, pal, outw * 4, outw, outh, 0, 216, 0);
 
-            if (!stdin_got_data (1))
+            //if (!stdin_got_data (1))
             {
               /* quantization used for approximate matches */
-              uint32_t mask = 0x80808080;
-              //uint32_t mask = 0xc0c0c0c0;
+              //uint32_t mask = 0x80808080;
+              uint32_t mask = 0xc0c0c0c0;
+              //uint32_t mask = 0xf0f0f0f0;
 
               for (int y = 0; y < outh-4; y+=4)
               {
-                for (int x = 0; x < outw; x+=4)
+                for (int x = 0; x < outw - 4; x+=4)
                 {
                   int best_glyph = 0;
                   int best_matches = 0;
@@ -1937,11 +1974,12 @@ interactive_load_image:
                   {
                     if (counts[i]>=max)
                     {
+                      secondmaxc = maxc;
+                      secondmax = max;
                       max = counts[i];
                       maxc = colors[i];
                     }
                   }
-                  secondmaxc = maxc;
                   for (int i = 0; i < c; i++)
                   {
                     if (counts[i]>=secondmax && colors[i] != maxc)
@@ -1950,7 +1988,7 @@ interactive_load_image:
                       secondmaxc = colors[i];
                     }
                   }
-
+#if 1
                   if (maxc == secondmaxc )
                   {
                     secondmaxc= *((uint32_t*)(&rgba[rgbo+outw*4 + 8]));
@@ -1959,7 +1997,9 @@ interactive_load_image:
                     if (maxc == secondmaxc)
                       secondmaxc= *((uint32_t*)(&rgba[rgbo+8*outw]));
                   }
+#endif
 
+                  /* do second run in inverse video  */
                   for (int i = 0; glyphs[i].utf8; i++)
                   {
                     int matches = 0;
@@ -1968,8 +2008,11 @@ interactive_load_image:
                       for (int v = 3; v >=0; v --)
                       for (int u = 3; u >=0; u --)
                       {
-                        int bit = ((secondmaxc & mask) != 
+                        int bit = ((maxc & mask) == 
                         ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
+                        int bit2 = ((secondmaxc & mask) == 
+                        ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
+
                         if (bit)
                         {
                           if (glyphs[i].bitmap & (1<<bitno))
@@ -1978,11 +2021,15 @@ interactive_load_image:
                         else
                         {
                           if (glyphs[i].bitmap & (1<<bitno) == 0)
-                            matches ++;
+                          {
+                            //matches ++;
+                            if (bit2)
+                              matches++;
+                          }
                         }
                         bitno++;
                       }
-                    if (matches > best_matches)
+                    if (matches >= best_matches)
                     {
                       best_matches = matches;
                       best_glyph = i;
