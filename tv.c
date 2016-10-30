@@ -518,6 +518,20 @@ int read_number (void)
   return -1; // not reached
 }
 
+EvReaction cmd_set_zoom (void)
+{
+  int val;
+  fprintf (stderr, "\rset zoom: ");
+  val = read_number ();
+
+  x_offset = 0;
+  y_offset = 0;
+
+  factor = 100.0 / val;
+
+  return REDRAW;
+}
+
 EvReaction cmd_jump (void)
 {
   int val;
@@ -747,6 +761,7 @@ Action actions[] = {
   {"r",        cmd_rotate},
   {"?",        cmd_help},
   {"j",        cmd_jump},
+  {"x",        cmd_set_zoom},
   {"S",        cmd_set_delay},
   {NULL, NULL}
 };
@@ -1771,6 +1786,16 @@ UnicodeGlyph glyphs[]={{
 NULL, 0}
 };
 
+static inline long coldiff(uint32_t col1, uint32_t col2)
+{
+  uint8_t *c1 = (void*)&col1;
+  uint8_t *c2 = (void*)&col2;
+
+  return ((c1[0]-c2[0])* (c1[0]-c2[0]) +
+          (c1[1]-c2[1])* (c1[1]-c2[1]) +
+          (c1[2]-c2[2])* (c1[2]-c2[2]));
+}
+
 int
 main (int argc, char **argv)
 {
@@ -2007,12 +2032,16 @@ interactive_load_image:
                     for (int v = 3; v >=0; v --)
                       for (int u = 3; u >=0; u --)
                       {
-                        int col = ((maxc & mask) == 
-                        ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
-                        int col2 = ((secondmaxc & mask) == 
-                        ((*((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4])))&mask));
+                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+                        long d1 = coldiff(col, maxc);
+                        long d2 = coldiff(col, secondmaxc);
+                        int col1 = 0;
+                        int col2 = 0;
 
-                        if (col)
+                        if (d1 < d2) col1 = 1;
+                        else col2 = 1;
+
+                        if (col1)
                         {
                           if (glyphs[i].bitmap & (1<<bitno))
                             matches ++;
@@ -2020,10 +2049,6 @@ interactive_load_image:
                         {
                           if (glyphs[i].bitmap & (1<<bitno) == 0)
                             matches ++;
-                        }
-                        else
-                        {
-                          matches--;
                         }
                         bitno++;
                       }
@@ -2037,7 +2062,6 @@ interactive_load_image:
                   sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
                   sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
 
-                  //sixel_outf("P");
                   sixel_outf(glyphs[best_glyph].utf8);
                 }
               sixel_outf ("\n");
