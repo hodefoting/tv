@@ -1904,7 +1904,7 @@ interactive_load_image:
               1,
               2,
               0);
-            if (!stdin_got_data (1))
+            if (interactive == 0 || !stdin_got_data (1))
             {
               int x, y;
               for (y = 0; y < outh-2; y+=2)
@@ -1929,7 +1929,7 @@ interactive_load_image:
 
         case TV_UTF8:
           {
-            if (!stdin_got_data (1))
+            if (interactive == 0 || !stdin_got_data (1))
             {
               if (interactive)
                 term_home ();
@@ -2068,6 +2068,55 @@ interactive_load_image:
                   }
 
                   /* XXX: re-calibrate color to actual best colors for glyph*/
+                  if(1){
+                    long red0 = 0, green0 = 0, blue0 = 0;
+                    long red1 = 0, green1 = 0, blue1 = 0;
+                    int bitno = 0;
+                    int count0 = 0, count1 = 0;
+                    for (int v = 3; v >=0; v --)
+                      for (int u = 3; u >=0; u --)
+                      {
+                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+
+                        if (((glyphs[best_glyph].bitmap) & (1<<bitno)))
+                        {
+                          red0 += col & 0xff;
+                          green0 += (col >> 8) & 0xff;
+                          blue0 += (col >> 16) & 0xff;
+                          count0++;
+                        }
+                        else
+                        {
+                          red1 += col & 0xff;
+                          green1 += (col >> 8) & 0xff;
+                          blue1 += (col >> 16) & 0xff;
+                          count1++;
+                        }
+                        bitno++;
+                      }
+                    if (count0)
+                    {
+                    red0/=count0;
+                    green0/=count0;
+                    blue0/=count0;
+                    }
+                    if (count1)
+                    {
+                    red1/=count1;
+                    green1/=count1;
+                    blue1/=count1;
+                    }
+                    if (best_is_inverted)
+                    {
+                      secondmaxc = red0 + (green0 << 8) + (blue0 << 16);
+                      maxc = red1 + (green1 << 8) + (blue1 << 16);
+                    }
+                    else
+                    {
+                      maxc = red0 + (green0 << 8) + (blue0 << 16);
+                      secondmaxc = red1 + (green1 << 8) + (blue1 << 16);
+                    }
+                  }
 
                   if (best_is_inverted)
                   {
