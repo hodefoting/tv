@@ -1805,121 +1805,8 @@ static inline long coldiff(uint32_t col1, uint32_t col2)
           (c1[2]-c2[2])* (c1[2]-c2[2]));
 }
 
-int
-main (int argc, char **argv)
+void paint_rgba (uint8_t *rgba, int outw, int outh)
 {
-  /* we initialize the terminals dimensions as defaults, before the commandline
-     gets to override these dimensions further 
-   */
-  init (&desired_width, &desired_height);
-
-  parse_args (argc, argv);
-  time_remaining = delay;   /* do this initialization after
-                               argument parsing has settled down
-                             */
-  images[images_c] = NULL;
-
-  if (images_c <= 0)
-    {
-       usage ();
-    }
-
-  if (strstr (images[0], ".pdf") ||
-      strstr (images[0], ".PDF"))
-    {
-      FILE *fp;
-      char command[4096];
-      command[4095]=0;
-      pdf_path = images[0];
-      pdf = 1;
-      interactive = 1;
-      snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
-
-      fp = popen(command, "r");
-      if (fp == NULL)
-      {
-        fprintf (stderr, "failed to run ghostscript to count pages in PDF %s, aborting\n", pdf_path);
-        exit (-1);
-      }
-      fgets(command, sizeof(command), fp);
-      pdf = images_c = atoi (command);
-
-      if (verbosity > 2)
-        fprintf (stderr, "%i pages in pdf %s\n", images_c, pdf_path);
-      pclose (fp);
-    }
-
-  if (interactive)
-  {
-    zero_origin = 1;
-    _nc_raw();
-  }
-
-
-  message = strdup ("press ? or h for help");
-  message_ttl = 2;
-
-  for (image_no = 0; image_no < images_c; image_no++)
-  {
-interactive_load_image:
-    //fprintf (stderr,"[%s]\n", images[image_no]);
-
-    if (pdf)
-      path = prepare_pdf_page (pdf_path, image_no+1);
-    else
-      path = images[image_no];
-
-    if (image)
-      free (image);
-    image = NULL;
-    image = image_load (path, &image_w, &image_h, NULL);
-    if (!image)
-    {
-      cmd_next ();
-      goto interactive_load_image;
-    }
-    tv_mode = init (&desired_width, &desired_height);
-
-    if (factor < 0)
-    {
-      cmd_zoom_fill ();
-      if (pdf)
-      {
-        x_offset = 0.0;
-        y_offset = 0.0;
-      }
-    }
-
-    if (!image)
-    {
-      sixel_outf ("\n\n");
-      return -1;
-    }
-
-    int clear = 0;
-
-    interactive_again:
-    if (0){}
-
-    int outw = desired_width;
-    int outh = desired_height;
-               
-    {
-      unsigned char *rgba = calloc (outw * 4 * outh, 1);
-
-      resample_image (image, 
-                      rgba,
-                      outw,
-                      outh,
-                      x_offset,
-                      y_offset,
-                      factor);
-      if (clear)
-      {
-         fprintf (stderr, "c");
-         clear = 0;
-      }
-
       switch (tv_mode)
       {
         case TV_ASCII:
@@ -2225,6 +2112,124 @@ interactive_load_image:
           fprintf (stderr, "uh? %i", __LINE__);
           break;
       }
+}
+
+int
+main (int argc, char **argv)
+{
+  /* we initialize the terminals dimensions as defaults, before the commandline
+     gets to override these dimensions further 
+   */
+  init (&desired_width, &desired_height);
+
+  parse_args (argc, argv);
+  time_remaining = delay;   /* do this initialization after
+                               argument parsing has settled down
+                             */
+  images[images_c] = NULL;
+
+  if (images_c <= 0)
+    {
+       usage ();
+    }
+
+  if (strstr (images[0], ".pdf") ||
+      strstr (images[0], ".PDF"))
+    {
+      FILE *fp;
+      char command[4096];
+      command[4095]=0;
+      pdf_path = images[0];
+      pdf = 1;
+      interactive = 1;
+      snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
+
+      fp = popen(command, "r");
+      if (fp == NULL)
+      {
+        fprintf (stderr, "failed to run ghostscript to count pages in PDF %s, aborting\n", pdf_path);
+        exit (-1);
+      }
+      fgets(command, sizeof(command), fp);
+      pdf = images_c = atoi (command);
+
+      if (verbosity > 2)
+        fprintf (stderr, "%i pages in pdf %s\n", images_c, pdf_path);
+      pclose (fp);
+    }
+
+  if (interactive)
+  {
+    zero_origin = 1;
+    _nc_raw();
+  }
+
+
+  message = strdup ("press ? or h for help");
+  message_ttl = 2;
+
+  for (image_no = 0; image_no < images_c; image_no++)
+  {
+interactive_load_image:
+    //fprintf (stderr,"[%s]\n", images[image_no]);
+
+    if (pdf)
+      path = prepare_pdf_page (pdf_path, image_no+1);
+    else
+      path = images[image_no];
+
+    if (image)
+      free (image);
+    image = NULL;
+    image = image_load (path, &image_w, &image_h, NULL);
+    if (!image)
+    {
+      cmd_next ();
+      goto interactive_load_image;
+    }
+    tv_mode = init (&desired_width, &desired_height);
+
+    if (factor < 0)
+    {
+      cmd_zoom_fill ();
+      if (pdf)
+      {
+        x_offset = 0.0;
+        y_offset = 0.0;
+      }
+    }
+
+    if (!image)
+    {
+      sixel_outf ("\n\n");
+      return -1;
+    }
+
+    int clear = 0;
+
+    interactive_again:
+    if (0){}
+
+    int outw = desired_width;
+    int outh = desired_height;
+               
+    {
+      unsigned char *rgba = calloc (outw * 4 * outh, 1);
+
+      resample_image (image, 
+                      rgba,
+                      outw,
+                      outh,
+                      x_offset,
+                      y_offset,
+                      factor);
+      if (clear)
+      {
+         fprintf (stderr, "c");
+         clear = 0;
+      }
+      paint_rgba (rgba, outw, outh);
+
       free (rgba);
 
       if (interactive)
