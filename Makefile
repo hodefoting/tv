@@ -1,4 +1,4 @@
-CFLAGS=-std=c99  -g
+CFLAGS=-std=c99  -g 
 
 tv: *.c
 	$(CC) $(CFLAGS) -o $@ *.c -lm `pkg-config --cflags --libs libjpeg libpng --static`
