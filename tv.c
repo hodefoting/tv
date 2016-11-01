@@ -1807,311 +1807,311 @@ static inline long coldiff(uint32_t col1, uint32_t col2)
 
 void paint_rgba (uint8_t *rgba, int outw, int outh)
 {
-      switch (tv_mode)
+  switch (tv_mode)
+  {
+    case TV_ASCII:
       {
-        case TV_ASCII:
+        unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+        dither_rgba (rgba,
+          pal,
+          outw * 4,
+          outw,
+          outh,
+          1,
+          2,
+          0);
+        if (interactive == 0 || !stdin_got_data (1))
+        {
+          int x, y;
+          for (y = 0; y < outh-2; y+=2)
           {
-            unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-            dither_rgba (rgba,
-              pal,
-              outw * 4,
-              outw,
-              outh,
-              1,
-              2,
-              0);
-            if (interactive == 0 || !stdin_got_data (1))
+            for (x = 0; x < outw; x+=2)
             {
-              int x, y;
-              for (y = 0; y < outh-2; y+=2)
-              {
-                for (x = 0; x < outw; x+=2)
-                {
-                  static char *ascii_quarts[]={" ","`","'","\"",",","[","/","P",".","\\","]","?","o","b","d","8",NULL};
-                  int bitmask = 0;
-                  int o = y * outw + x;
-                  if (pal[o]!=0)        bitmask |= (1<<0); //1
-                  if (pal[o+1]!=0)      bitmask |= (1<<1); //2
-                  if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
-                  if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
-                  sixel_outf (ascii_quarts[bitmask]);
-                }
-                sixel_outf ("\n");
-              }
+              static char *ascii_quarts[]={" ","`","'","\"",",","[","/","P",".","\\","]","?","o","b","d","8",NULL};
+              int bitmask = 0;
+              int o = y * outw + x;
+              if (pal[o]!=0)        bitmask |= (1<<0); //1
+              if (pal[o+1]!=0)      bitmask |= (1<<1); //2
+              if (pal[o+outw]!=0)   bitmask |= (1<<2); //4
+              if (pal[o+outw+1]!=0) bitmask |= (1<<3); //8
+              sixel_outf (ascii_quarts[bitmask]);
             }
-            free (pal);
+            sixel_outf ("\n");
           }
-          break;
+        }
+        free (pal);
+      }
+      break;
 
-        case TV_UTF8:
+    case TV_UTF8:
+      {
+        if (interactive == 0 || !stdin_got_data (1))
+        {
+          if (interactive)
+            term_home ();
+          /* quantization used for approximate matches */
+          //uint32_t mask = 0xf8fcf8f8;
+          uint32_t mask = 0xf0f0f0f0;
+          //uint32_t mask = 0xc0c0c0c0;
+          //uint32_t mask = 0x80808080;
+          //uint32_t mask = 0xffffffff;
+
+          for (int y = 0; y < outh-4; y+=4)
           {
-            if (interactive == 0 || !stdin_got_data (1))
+            for (int x = 0; x < outw - 4; x+=4)
             {
-              if (interactive)
-                term_home ();
-              /* quantization used for approximate matches */
-              //uint32_t mask = 0xf8fcf8f8;
-              uint32_t mask = 0xf0f0f0f0;
-              //uint32_t mask = 0xc0c0c0c0;
-              //uint32_t mask = 0x80808080;
-              //uint32_t mask = 0xffffffff;
+              int best_glyph = 0;
+              int best_matches = 0;
+              int best_is_inverted = 0;
+              int rgbo = y * outw * 4 + x * 4;
 
-              for (int y = 0; y < outh-4; y+=4)
-              {
-                for (int x = 0; x < outw - 4; x+=4)
+              uint32_t maxc = 0;
+              uint32_t secondmaxc = 0;
+              int counts[16]={0,0,0,0};
+              uint32_t colors[16]={0,0,0,0};
+              int max = 0;
+              int secondmax = 0;
+              int c = 0;
+              for (int u = 0; u < 4; u++)
+              for (int v = 0; v < 4; v++)
                 {
-                  int best_glyph = 0;
-                  int best_matches = 0;
-                  int best_is_inverted = 0;
-                  int rgbo = y * outw * 4 + x * 4;
-
-                  uint32_t maxc = 0;
-                  uint32_t secondmaxc = 0;
-                  int counts[16]={0,0,0,0};
-                  uint32_t colors[16]={0,0,0,0};
-                  int max = 0;
-                  int secondmax = 0;
-                  int c = 0;
-                  for (int u = 0; u < 4; u++)
-                  for (int v = 0; v < 4; v++)
-                    {
-                      int found = 0;
-                      for (int i = 0; i < c && found==0; i++)
-                      {
-                        if ((colors[i] & mask) == 
-                            (*((uint32_t*)(&rgba[rgbo+outw*4*v+u*4])) & mask))
-                        {
-                          counts[i]++;
-                          found = 1;
-                        }
-                      }
-                      if (!found)
-                      {
-                        colors[c] = *((uint32_t*)(&rgba[rgbo+outw*4*v+u*4]));
-                        counts[c] = 1;
-                        c++;
-                      }
-                    }
-                  for (int i = 0; i < c; i++)
+                  int found = 0;
+                  for (int i = 0; i < c && found==0; i++)
                   {
-                    if (counts[i]>=max)
+                    if ((colors[i] & mask) == 
+                        (*((uint32_t*)(&rgba[rgbo+outw*4*v+u*4])) & mask))
                     {
-                      secondmaxc = maxc;
-                      secondmax = max;
-                      max = counts[i];
-                      maxc = colors[i];
+                      counts[i]++;
+                      found = 1;
                     }
                   }
-                  for (int i = 0; i < c; i++)
+                  if (!found)
                   {
-                    if (counts[i]>=secondmax && colors[i] != maxc)
-                    {
-                      secondmax = counts[i];
-                      secondmaxc = colors[i];
-                    }
+                    colors[c] = *((uint32_t*)(&rgba[rgbo+outw*4*v+u*4]));
+                    counts[c] = 1;
+                    c++;
                   }
+                }
+              for (int i = 0; i < c; i++)
+              {
+                if (counts[i]>=max)
+                {
+                  secondmaxc = maxc;
+                  secondmax = max;
+                  max = counts[i];
+                  maxc = colors[i];
+                }
+              }
+              for (int i = 0; i < c; i++)
+              {
+                if (counts[i]>=secondmax && colors[i] != maxc)
+                {
+                  secondmax = counts[i];
+                  secondmaxc = colors[i];
+                }
+              }
 
-                  for (int i = 0; glyphs[i].utf8; i++)
+              for (int i = 0; glyphs[i].utf8; i++)
+              {
+                int matches = 0;
+                int bitno = 0;
+                for (int v = 3; v >=0; v --)
+                  for (int u = 3; u >=0; u --)
                   {
-                    int matches = 0;
-                    int bitno = 0;
-                    for (int v = 3; v >=0; v --)
-                      for (int u = 3; u >=0; u --)
-                      {
-                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
-                        long d1 = coldiff(col, maxc);
-                        long d2 = coldiff(col, secondmaxc);
-                        int col1 = 0;
-                        int col2 = 0;
+                    uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+                    long d1 = coldiff(col, maxc);
+                    long d2 = coldiff(col, secondmaxc);
+                    int col1 = 0;
+                    int col2 = 0;
 
-                        if (d1 < d2) col1 = 1;
-                        else col2 = 1;
+                    if (d1 < d2) col1 = 1;
+                    else col2 = 1;
 
-                        if (col1)
-                        {
-                          if (glyphs[i].bitmap & (1<<bitno))
-                            matches ++;
-                        } else if (col2)
-                        {
-                          if ((glyphs[i].bitmap & (1<<bitno)) == 0)
-                            matches ++;
-                        }
-                        bitno++;
-                      }
-                    if (matches > best_matches)
+                    if (col1)
                     {
-                      best_matches = matches;
-                      best_glyph = i;
-                      best_is_inverted = 0;
+                      if (glyphs[i].bitmap & (1<<bitno))
+                        matches ++;
+                    } else if (col2)
+                    {
+                      if ((glyphs[i].bitmap & (1<<bitno)) == 0)
+                        matches ++;
                     }
+                    bitno++;
                   }
+                if (matches > best_matches)
+                {
+                  best_matches = matches;
+                  best_glyph = i;
+                  best_is_inverted = 0;
+                }
+              }
 
 
-                  /* do second run in inverse video  */
-                  for (int i = 20; glyphs[i].utf8; i++)
+              /* do second run in inverse video  */
+              for (int i = 20; glyphs[i].utf8; i++)
+              {
+                int matches = 0;
+                int bitno = 0;
+                for (int v = 3; v >=0; v --)
+                  for (int u = 3; u >=0; u --)
                   {
-                    int matches = 0;
-                    int bitno = 0;
-                    for (int v = 3; v >=0; v --)
-                      for (int u = 3; u >=0; u --)
-                      {
-                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
-                        long d1 = coldiff(col, maxc);
-                        long d2 = coldiff(col, secondmaxc);
-                        int col1 = 0;
-                        int col2 = 0;
+                    uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+                    long d1 = coldiff(col, maxc);
+                    long d2 = coldiff(col, secondmaxc);
+                    int col1 = 0;
+                    int col2 = 0;
 
-                        if (d1 < d2) col1 = 1;
-                        else col2 = 1;
+                    if (d1 < d2) col1 = 1;
+                    else col2 = 1;
 
-                        if (col1)
-                        {
-                          if ((!glyphs[i].bitmap) & (1<<bitno))
-                            matches ++;
-                        } else if (col2)
-                        {
-                          if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
-                            matches ++;
-                        }
-                        bitno++;
-                      }
-                    if (matches >= best_matches)
+                    if (col1)
                     {
-                      best_matches = matches;
-                      best_glyph = i;
-                      best_is_inverted = 1;
+                      if ((!glyphs[i].bitmap) & (1<<bitno))
+                        matches ++;
+                    } else if (col2)
+                    {
+                      if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
+                        matches ++;
                     }
+                    bitno++;
                   }
+                if (matches >= best_matches)
+                {
+                  best_matches = matches;
+                  best_glyph = i;
+                  best_is_inverted = 1;
+                }
+              }
 
-                  /* XXX: re-calibrate color to actual best colors for glyph*/
-                  if(1){
-                    long red0 = 0, green0 = 0, blue0 = 0;
-                    long red1 = 0, green1 = 0, blue1 = 0;
-                    int bitno = 0;
-                    int count0 = 0, count1 = 0;
-                    for (int v = 3; v >=0; v --)
-                      for (int u = 3; u >=0; u --)
-                      {
-                        uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+              /* XXX: re-calibrate color to actual best colors for glyph*/
+              if(1){
+                long red0 = 0, green0 = 0, blue0 = 0;
+                long red1 = 0, green1 = 0, blue1 = 0;
+                int bitno = 0;
+                int count0 = 0, count1 = 0;
+                for (int v = 3; v >=0; v --)
+                  for (int u = 3; u >=0; u --)
+                  {
+                    uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
 
-                        if (((glyphs[best_glyph].bitmap) & (1<<bitno)))
-                        {
-                          red0 += col & 0xff;
-                          green0 += (col >> 8) & 0xff;
-                          blue0 += (col >> 16) & 0xff;
-                          count0++;
-                        }
-                        else
-                        {
-                          red1 += col & 0xff;
-                          green1 += (col >> 8) & 0xff;
-                          blue1 += (col >> 16) & 0xff;
-                          count1++;
-                        }
-                        bitno++;
-                      }
-                    if (count0)
+                    if (((glyphs[best_glyph].bitmap) & (1<<bitno)))
                     {
-                    red0/=count0;
-                    green0/=count0;
-                    blue0/=count0;
-                    }
-                    if (count1)
-                    {
-                    red1/=count1;
-                    green1/=count1;
-                    blue1/=count1;
-                    }
-                    if (best_is_inverted)
-                    {
-                      secondmaxc = red0 + (green0 << 8) + (blue0 << 16);
-                      maxc = red1 + (green1 << 8) + (blue1 << 16);
+                      red0 += col & 0xff;
+                      green0 += (col >> 8) & 0xff;
+                      blue0 += (col >> 16) & 0xff;
+                      count0++;
                     }
                     else
                     {
-                      maxc = red0 + (green0 << 8) + (blue0 << 16);
-                      secondmaxc = red1 + (green1 << 8) + (blue1 << 16);
+                      red1 += col & 0xff;
+                      green1 += (col >> 8) & 0xff;
+                      blue1 += (col >> 16) & 0xff;
+                      count1++;
                     }
+                    bitno++;
                   }
-
-                  if (best_is_inverted)
-                  {
-                    sixel_outf("[48;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
-                    sixel_outf("[38;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
-                  }
-                  else
-                  {
-                    sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
-                    sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
-                  }
-
-                  sixel_outf(glyphs[best_glyph].utf8);
-                }
-              sixel_outf ("\n");
-              sixel_outf("[0m");
-            }
-          }
-          }
-          break;
-        case TV_FB:
-          {
-            int scan;
-            int fb_fd = open ("/dev/fb0", O_RDWR);
-            unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
-
-            for (scan = 0; scan < outh; scan++)
-            {
-              unsigned char *src = rgba + outw * 4 * scan;
-              unsigned char *dst = fb + fb_stride * scan;
-              int x;
-
-		      switch (fb_bpp)
+                if (count0)
                 {
-                  case 32:
-                  for (x= 0; x < outw; x++)
-                  {
-                    dst[0]=src[2];
-                    dst[1]=src[1];
-                    dst[2]=src[0];
-                    dst[3]=src[3];
-                    src+=4;
-                    dst+=4;
-                  }
-                  break;
-                  case 24:
-                    memcpy32_24 (dst, src, outw);
-                    break;
-                  case 16:
-                    memcpy32_16 (dst, src, outw, scan, 0);
-                    break;
-                  case 15:
-                    memcpy32_15 (dst, src, outw, scan, 0);
-                    break;
-                  case 8:
-                    memcpy32_8 (dst, src, outw, scan, 0);
-                    break;
+                red0/=count0;
+                green0/=count0;
+                blue0/=count0;
                 }
+                if (count1)
+                {
+                red1/=count1;
+                green1/=count1;
+                blue1/=count1;
+                }
+                if (best_is_inverted)
+                {
+                  secondmaxc = red0 + (green0 << 8) + (blue0 << 16);
+                  maxc = red1 + (green1 << 8) + (blue1 << 16);
+                }
+                else
+                {
+                  maxc = red0 + (green0 << 8) + (blue0 << 16);
+                  secondmaxc = red1 + (green1 << 8) + (blue1 << 16);
+                }
+              }
+
+              if (best_is_inverted)
+              {
+                sixel_outf("[48;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
+                sixel_outf("[38;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+              }
+              else
+              {
+                sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
+                sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+              }
+
+              sixel_outf(glyphs[best_glyph].utf8);
             }
-            munmap (fb, fb_mapped_size);
-            fflush (stdout);
-            close (fb_fd);
-          }
-          break;
-        case TV_SIXEL_HI:
-        case TV_SIXEL:
-          {
-      unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-      dither_rgba (rgba, pal, outw * 4, outw, outh, grayscale, palcount, 0);
-      if (!stdin_got_data (1))
-      blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, grayscale, palcount, 0
-                  );
-      free (pal);
-           }
-           break;
-        case TV_AUTO:
-          fprintf (stderr, "uh? %i", __LINE__);
-          break;
+          sixel_outf ("\n");
+          sixel_outf("[0m");
+        }
       }
+      }
+      break;
+    case TV_FB:
+      {
+        int scan;
+        int fb_fd = open ("/dev/fb0", O_RDWR);
+        unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+
+        for (scan = 0; scan < outh; scan++)
+        {
+          unsigned char *src = rgba + outw * 4 * scan;
+          unsigned char *dst = fb + fb_stride * scan;
+          int x;
+
+	      switch (fb_bpp)
+            {
+              case 32:
+              for (x= 0; x < outw; x++)
+              {
+                dst[0]=src[2];
+                dst[1]=src[1];
+                dst[2]=src[0];
+                dst[3]=src[3];
+                src+=4;
+                dst+=4;
+              }
+              break;
+              case 24:
+                memcpy32_24 (dst, src, outw);
+                break;
+              case 16:
+                memcpy32_16 (dst, src, outw, scan, 0);
+                break;
+              case 15:
+                memcpy32_15 (dst, src, outw, scan, 0);
+                break;
+              case 8:
+                memcpy32_8 (dst, src, outw, scan, 0);
+                break;
+            }
+        }
+        munmap (fb, fb_mapped_size);
+        fflush (stdout);
+        close (fb_fd);
+      }
+      break;
+    case TV_SIXEL_HI:
+    case TV_SIXEL:
+      {
+  unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+  dither_rgba (rgba, pal, outw * 4, outw, outh, grayscale, palcount, 0);
+  if (!stdin_got_data (1))
+  blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, grayscale, palcount, 0
+              );
+  free (pal);
+       }
+       break;
+    case TV_AUTO:
+      fprintf (stderr, "uh? %i", __LINE__);
+      break;
+  }
 }
 
 int
