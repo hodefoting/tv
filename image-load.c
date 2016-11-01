@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define HAVE_JPEG
+//#define HAVE_JPEG
 #define HAVE_PNG
 
 #ifdef HAVE_JPEG
@@ -161,5 +161,99 @@ image_load (const char *path,
       strstr (path, ".JPG"))
     return stbi_load (path, width, height, stride, 4);
   return NULL;
+}
+
+void resample_image (const unsigned char *image,
+                     int                  image_w,
+                     int                  image_h,
+                     unsigned char       *rgba,
+                     int                  outw,
+                     int                  outh,
+                     float                x_offset,
+                     float                y_offset,
+                     float                factor,
+                     float                aspect,
+                     int                  rotate)
+{
+  int y, x;
+  int i = 0;
+  /* do resampling as part of view, not as a separate step */
+  for (y = 0; y < outh; y++)
+  {
+      for (x = 0; x < outw; x ++)
+      {
+        int v = 0;
+        int q0 = x     * factor + x_offset;
+        int q1 = (x+1) * factor + x_offset;
+        int accumulated[4] = {0,0,0,0};
+        int got_coverage = 0;
+        int z0;
+        int z1;
+
+        z0 = (y + v) * factor * aspect + y_offset;
+        z1 = (y + v + 1) * factor * aspect + y_offset;
+              
+        int offset;
+        switch (rotate)
+        {
+          case 90:
+            offset = (int)((image_h-q0) * image_w + z0)*4;
+            if (q1 < image_h &&
+                z1 < image_w && q0 >= 0 && z0 >= 0)
+              got_coverage = image[offset+3]>127;
+              break;
+          default:
+          case 0:
+            offset = (int)((z0) * image_w + q0)*4;
+  
+            if (z1 < image_h &&
+                q1 < image_w && z0 >= 0 && q0 >= 0)
+                got_coverage = image[offset+3]>127;
+              break;
+        }
+        accumulated[0] = 0;
+        accumulated[1] = 0;
+        accumulated[2] = 0;
+        accumulated[3] = 0;
+
+        if (got_coverage)
+          {
+            int z, q;
+            int c = 0;
+            int offset2;
+
+            if (q1 == q0) q1 = q0+1;
+            if (z1 == z0) z1 = z0+1;
+
+            for (q = q0; q<q1; q++)
+              for (z = z0; z<z1; z++)
+                {
+                  switch (rotate)
+                  {
+                    case 90:
+                      offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
+                      break;
+                    case 0:
+                    default:
+                      offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                      break;
+                  }
+                  accumulated[0] += image[offset2 + 0];
+                  accumulated[1] += image[offset2 + 1];
+                  accumulated[2] += image[offset2 + 2];
+                  accumulated[3] += image[offset2 + 3];
+                  c++;
+                }
+                accumulated[0] /= c;
+                accumulated[1] /= c;
+                accumulated[2] /= c;
+                accumulated[3] /= c;
+          }
+       for (int c = 0; c < 4; c++)
+         rgba[i * 4 + c] =
+            accumulated[c]>255?255:(accumulated[c]<0?0:accumulated[c]);
+       i++;
+     }
+  }
 }
 
