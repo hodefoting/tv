@@ -16,7 +16,9 @@
 #include <assert.h>
 #include "tfb.h"
 
-TvOutput tv_mode = TV_AUTO;
+Tfb tfb = {
+1,1,1,-1,0,1,1,TV_AUTO
+};
 
 float aspect = 1.0;
 int rotate = 0;
@@ -24,7 +26,6 @@ int rotate = 0;
 #define SKIP_FULL_BLANK_ROWS 1
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
-
 
 char *images[4096]={0,};
 const char *pdf_path = NULL;
@@ -36,10 +37,12 @@ int status_y = 25;
 int status_x = 1;
 
 int loop = 1;
+#if 0
 int fb_bpp = 1;
 int fb_mapped_size = 1;
 int fb_stride = 1;
 int palcount = -1;
+#endif
 
 int sixel_is_supported (void);
 
@@ -47,114 +50,6 @@ int sixel_is_supported (void);
 static unsigned short ored[256], ogreen[256], oblue[256];
 static struct fb_cmap ocmap = {0, 256, ored, ogreen, oblue, NULL};
 int ocmap_used = 0;
-
-TvOutput init (int *dw, int *dh)
-{
-  struct winsize size = {0,0,0,0};
-  int result = ioctl (0, TIOCGWINSZ, &size);
-  if (result) {
-    *dw = 400; /* default dims - works for xterm which is small*/
-    *dh = 300;
-  }
-  else
-  {
-    *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
-    status_y = size.ws_row;
-  }
-
-
-  if (sixel_is_supported () && tv_mode == TV_AUTO)
-  {
-    if (getenv("TERM") && !strcmp(getenv("TERM"), "mlterm"))
-    {
-      if (palcount == -1) /* only do the autobump on 16, means that it doesn't
-                             work for 16 directly  */
-        palcount = 255;
-      return TV_SIXEL_HI;
-    }
-    if (palcount == -1)
-      palcount = 16;
-    return TV_SIXEL;
-  }
-
-  if (tv_mode == TV_FB ||
-      (            
-      tv_mode == TV_AUTO && !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux")))
-  {
-    struct fb_var_screeninfo vinfo;
-    struct fb_fix_screeninfo finfo;
-    int fb_fd = open ("/dev/fb0", O_RDWR);
-
-    ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
-    ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
-
-
-    *dw = vinfo.xres;
-    *dh = vinfo.yres;
-
-    fb_bpp = vinfo.bits_per_pixel;
-    if (fb_bpp == 16)
-    {
-      fb_bpp = vinfo.red.length +
-               vinfo.green.length +
-               vinfo.blue.length;
-    }
-
-    if (fb_bpp == 8)
-    {
-      int i;
-      unsigned short red[256], green[256], blue[256];
-      struct fb_cmap cmap = {0, 256, red, green, blue, NULL};
-      
-      if (ocmap_used == 0)
-      {
-        ioctl (fb_fd, FBIOGETCMAP, &ocmap);
-        ocmap_used = 1;
-      }
-      i=0;
-      for (int r = 0; r < 6; r++)
-      for (int g = 0; g < 7; g++)
-      for (int b = 0; b < 6; b++)
-      {
-        red[i]   = (r / 5.0) * 65535;
-        green[i] = (g / 6.0) * 65535;
-        blue[i] =  (b / 5.0) * 65535;
-        i++;
-      }
-      ioctl (fb_fd, FBIOPUTCMAP, &cmap);
-    }
-
-    fb_stride = finfo.line_length;
-    fb_mapped_size = finfo.smem_len;
-
-    close (fb_fd);
-
-    return TV_FB;
-  }
-
-  if (tv_mode == TV_ASCII || tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
-  {
-    if (tv_mode == TV_UTF8 || tv_mode == TV_AUTO)
-    {
-      *dw = size.ws_col * 4;
-      *dh = size.ws_row * 4;
-    }
-    else
-    {
-      *dw = size.ws_col * 2;
-      *dh = size.ws_row * 2;
-    }
-
-    aspect = 1.9;
-    if (tv_mode != TV_AUTO)
-      return tv_mode;
-    return TV_UTF8;
-    return TV_ASCII;
-  }
-
-  return TV_SIXEL;
-}
 
 void usage ()
 {
@@ -559,15 +454,15 @@ EvReaction cmd_zoom_1 (void)
 
 EvReaction cmd_pal_up (void)
 {
-  palcount ++;
+  tfb.palcount ++;
   return REDRAW;
 }
 
 EvReaction cmd_pal_down (void)
 {
-  palcount --;
-  if (palcount < 2)
-    palcount = 2;
+  tfb.palcount --;
+  if (tfb.palcount < 2)
+    tfb.palcount = 2;
   return REDRAW;
 }
 
@@ -761,12 +656,12 @@ void print_status (void)
       if (!do_dither)
         printf (" -nd");
 
-      printf (" -p %d", palcount);
+      printf (" -p %d", tfb.palcount);
     }
   }
 }
 
-void parse_args (int argc, char **argv)
+void parse_args (Tfb *tfb, int argc, char **argv)
 {
   int x;
   for (x = 1; argv[x]; x++)
@@ -815,18 +710,18 @@ void parse_args (int argc, char **argv)
         exit (-1);
 
       if (!strcmp (argv[x+1], "ascii"))
-        tv_mode = TV_ASCII;
+        tfb->tv_mode = TV_ASCII;
       else if (!strcmp (argv[x+1], "utf8"))
-        tv_mode = TV_UTF8;
+        tfb->tv_mode = TV_UTF8;
       else if (!strcmp (argv[x+1], "sixel-hi"))
       {
-        tv_mode = TV_SIXEL_HI;
-        palcount = 255;
+        tfb->tv_mode = TV_SIXEL_HI;
+        tfb->palcount = 255;
       }
       else if (!strcmp (argv[x+1], "sixel"))
-        tv_mode = TV_SIXEL;
+        tfb->tv_mode = TV_SIXEL;
       else if (!strcmp (argv[x+1], "fb"))
-        tv_mode = TV_FB;
+        tfb->tv_mode = TV_FB;
       else
       {
         fprintf (stderr, "invalid argument for -m, '%s' only know of ascii, utf8, sixel and fb\n", argv[x+1]);
@@ -838,9 +733,9 @@ void parse_args (int argc, char **argv)
     {
       if (!argv[x+1])
         exit (-1);
-      palcount = atoi (argv[x+1]);
-      if (palcount < 2)
-        palcount = 2;
+      tfb->palcount = atoi (argv[x+1]);
+      if (tfb->palcount < 2)
+        tfb->palcount = 2;
       x++;
     }
     else if (!strcmp (argv[x], "-w"))
@@ -972,16 +867,15 @@ void resample_image (const unsigned char *image,
 
 int sixel_is_supported (void);
 
-
 int
 main (int argc, char **argv)
 {
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
    */
-  init (&desired_width, &desired_height);
+  init (&tfb, &desired_width, &desired_height);
 
-  parse_args (argc, argv);
+  parse_args (&tfb, argc, argv);
   time_remaining = delay;   /* do this initialization after
                                argument parsing has settled down
                              */
@@ -1046,7 +940,7 @@ interactive_load_image:
       cmd_next ();
       goto interactive_load_image;
     }
-    tv_mode = init (&desired_width, &desired_height);
+    tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
 
     if (factor < 0)
     {
@@ -1087,7 +981,7 @@ interactive_load_image:
          fprintf (stderr, "c");
          clear = 0;
       }
-      paint_rgba (rgba, outw, outh);
+      paint_rgba (&tfb, rgba, outw, outh);
 
       free (rgba);
 
@@ -1129,4 +1023,113 @@ interactive_load_image:
   }
   printf ("\r");
   return 0;
+}
+
+
+TvOutput init (Tfb *tfb, int *dw, int *dh)
+{
+  struct winsize size = {0,0,0,0};
+  int result = ioctl (0, TIOCGWINSZ, &size);
+  if (result) {
+    *dw = 400; /* default dims - works for xterm which is small*/
+    *dh = 300;
+  }
+  else
+  {
+    *dw = size.ws_xpixel ;
+    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
+    status_y = size.ws_row;
+  }
+
+
+  if (sixel_is_supported () && tfb->tv_mode == TV_AUTO)
+  {
+    if (getenv("TERM") && !strcmp(getenv("TERM"), "mlterm"))
+    {
+      if (tfb->palcount == -1) /* only do the autobump on 16, means that it doesn't
+                             work for 16 directly  */
+        tfb->palcount = 255;
+      return TV_SIXEL_HI;
+    }
+    if (tfb->palcount == -1)
+      tfb->palcount = 16;
+    return TV_SIXEL;
+  }
+
+  if (tfb->tv_mode == TV_FB ||
+      (            
+      tfb->tv_mode == TV_AUTO && !getenv("DISPLAY") && getenv("TERM") && !strcmp (getenv ("TERM"), "linux")))
+  {
+    struct fb_var_screeninfo vinfo;
+    struct fb_fix_screeninfo finfo;
+    int fb_fd = open ("/dev/fb0", O_RDWR);
+
+    ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
+    ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
+
+
+    *dw = vinfo.xres;
+    *dh = vinfo.yres;
+
+    tfb->fb_bpp = vinfo.bits_per_pixel;
+    if (tfb->fb_bpp == 16)
+    {
+      tfb->fb_bpp = vinfo.red.length +
+               vinfo.green.length +
+               vinfo.blue.length;
+    }
+
+    if (tfb->fb_bpp == 8)
+    {
+      int i;
+      unsigned short red[256], green[256], blue[256];
+      struct fb_cmap cmap = {0, 256, red, green, blue, NULL};
+      
+      if (ocmap_used == 0)
+      {
+        ioctl (fb_fd, FBIOGETCMAP, &ocmap);
+        ocmap_used = 1;
+      }
+      i=0;
+      for (int r = 0; r < 6; r++)
+      for (int g = 0; g < 7; g++)
+      for (int b = 0; b < 6; b++)
+      {
+        red[i]   = (r / 5.0) * 65535;
+        green[i] = (g / 6.0) * 65535;
+        blue[i] =  (b / 5.0) * 65535;
+        i++;
+      }
+      ioctl (fb_fd, FBIOPUTCMAP, &cmap);
+    }
+
+    tfb->fb_stride = finfo.line_length;
+    tfb->fb_mapped_size = finfo.smem_len;
+
+    close (fb_fd);
+
+    return TV_FB;
+  }
+
+  if (tfb->tv_mode == TV_ASCII || tfb->tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
+  {
+    if (tfb->tv_mode == TV_UTF8 || tfb->tv_mode == TV_AUTO)
+    {
+      *dw = size.ws_col * 4;
+      *dh = size.ws_row * 4;
+    }
+    else
+    {
+      *dw = size.ws_col * 2;
+      *dh = size.ws_row * 2;
+    }
+
+    aspect = 1.9;
+    if (tfb->tv_mode != TV_AUTO)
+      return tfb->tv_mode;
+    return TV_UTF8;
+    return TV_ASCII;
+  }
+
+  return TV_SIXEL;
 }

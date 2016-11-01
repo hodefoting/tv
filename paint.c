@@ -16,11 +16,8 @@
 #include <assert.h>
 #include "tfb.h"
 
-extern int fb_bpp;
-extern int fb_mapped_size;
-extern int fb_stride;
-extern int palcount;
-extern int grayscale;
+
+
 
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
@@ -351,8 +348,6 @@ UnicodeGlyph glyphs[]={{
 NULL, 0}
 };
 
-extern int do_dither;
-extern int interactive;
 
 void sixel_out_char (int ch)
 {
@@ -446,7 +441,6 @@ void term_home ()
 }
 
 
-extern TvOutput tv_mode;
 static inline float mask_a (int x, int y, int c)
 {
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
@@ -718,7 +712,8 @@ void blit_sixel_pal (unsigned int        *pal,
 }
 
 
-void dither_rgba (const unsigned char *rgba,
+void dither_rgba (Tfb *tfb,
+                const unsigned char *rgba,
                   unsigned int         *pal,
                   int                  rowstride,
                   int                  outw,
@@ -753,7 +748,7 @@ void dither_rgba (const unsigned char *rgba,
             dithered[1] = rgba[offset+1];
             dithered[2] = rgba[offset+2];
             dithered[3] = rgba[offset+3];
-            if (do_dither)
+            if (tfb->do_dither)
             {
               dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
               dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
@@ -804,14 +799,14 @@ void dither_rgba (const unsigned char *rgba,
 }
 
 
-void paint_rgba (uint8_t *rgba, int outw, int outh)
+void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 {
-  switch (tv_mode)
+  switch (tfb->tv_mode)
   {
     case TV_ASCII:
       {
         unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-        dither_rgba (rgba,
+        dither_rgba (tfb, rgba,
           pal,
           outw * 4,
           outw,
@@ -819,7 +814,7 @@ void paint_rgba (uint8_t *rgba, int outw, int outh)
           1,
           2,
           0);
-        if (interactive == 0 || !stdin_got_data (1))
+        if (tfb->interactive == 0 || !stdin_got_data (1))
         {
           int x, y;
           for (y = 0; y < outh-2; y+=2)
@@ -844,9 +839,9 @@ void paint_rgba (uint8_t *rgba, int outw, int outh)
 
     case TV_UTF8:
       {
-        if (interactive == 0 || !stdin_got_data (1))
+        if (tfb->interactive == 0 || !stdin_got_data (1))
         {
-          if (interactive)
+          if (tfb->interactive)
             term_home ();
           /* quantization used for approximate matches */
           //uint32_t mask = 0xf8fcf8f8;
@@ -1056,15 +1051,15 @@ void paint_rgba (uint8_t *rgba, int outw, int outh)
       {
         int scan;
         int fb_fd = open ("/dev/fb0", O_RDWR);
-        unsigned char *fb = mmap (NULL, fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+        unsigned char *fb = mmap (NULL, tfb->fb_mapped_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
 
         for (scan = 0; scan < outh; scan++)
         {
           unsigned char *src = rgba + outw * 4 * scan;
-          unsigned char *dst = fb + fb_stride * scan;
+          unsigned char *dst = fb + tfb->fb_stride * scan;
           int x;
 
-	      switch (fb_bpp)
+	      switch (tfb->fb_bpp)
             {
               case 32:
               for (x= 0; x < outw; x++)
@@ -1091,7 +1086,7 @@ void paint_rgba (uint8_t *rgba, int outw, int outh)
                 break;
             }
         }
-        munmap (fb, fb_mapped_size);
+        munmap (fb, tfb->fb_mapped_size);
         fflush (stdout);
         close (fb_fd);
       }
@@ -1100,9 +1095,9 @@ void paint_rgba (uint8_t *rgba, int outw, int outh)
     case TV_SIXEL:
       {
   unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-  dither_rgba (rgba, pal, outw * 4, outw, outh, grayscale, palcount, 0);
+  dither_rgba (tfb, rgba, pal, outw * 4, outw, outh, tfb->grayscale, tfb->palcount, 0);
   if (!stdin_got_data (1))
-  blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, grayscale, palcount, 0
+  blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, tfb->grayscale, tfb->palcount, 0
               );
   free (pal);
        }
@@ -1159,3 +1154,6 @@ int sixel_is_supported (void)
   }
   return inited;
 }
+
+
+
