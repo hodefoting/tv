@@ -18,6 +18,27 @@
 #include <unistd.h>
 #include "tfb.h"
 
+float          factor         = -1.0;
+float          x_offset       = 0.0;
+float          y_offset       = 0.0;
+int            do_dither      = 1;
+int            grayscale      = 0;
+int            slideshow      = 0;
+float          delay          = 4.0;
+float          time_remaining = 0.0;
+int            verbosity      = 1;
+int            desired_width  = 1024;
+int            desired_height = 1024;
+int            image_no;
+unsigned char *image       = NULL;
+int            image_w, image_h;
+const char    *path        = NULL;
+int            pdf         = 0;
+int            zero_origin = 0;
+int            interactive = 1;
+
+int            thumbs = 0;
+
 Tfb tfb = {
 1,1,1,-1,0,1,1,TV_AUTO
 };
@@ -127,24 +148,6 @@ static int _nc_raw (void)
   return 0;
 }
 
-float          factor   = -1.0;
-float          x_offset = 0.0;
-float          y_offset = 0.0;
-int            do_dither = 1;
-int            grayscale = 0;
-int            slideshow = 0;
-float          delay = 4.0;
-float          time_remaining = 0.0;
-int            verbosity = 1;
-int            desired_width =  1024;
-int            desired_height = 1024;
-int            image_no;
-unsigned char *image = NULL;
-int            image_w, image_h;
-const char    *path = NULL;
-int            pdf = 0;
-int            zero_origin = 0;
-int            interactive = 1;
 
 typedef enum {
   RENONE=0,
@@ -333,6 +336,12 @@ EvReaction cmd_slideshow (void)
   return REDRAW;
 }
 
+EvReaction cmd_thumbs (void)
+{
+  thumbs = !thumbs;
+  return REDRAW;
+}
+
 EvReaction cmd_verbosity (void)
 {
   verbosity ++;
@@ -518,6 +527,8 @@ Action actions[] = {
   {"d",        cmd_do_dither},
   {"g",        cmd_grayscale},
   {"s",        cmd_slideshow},
+  {"t",        cmd_thumbs},
+  {"\t",       cmd_thumbs},
   {"v",        cmd_verbosity},
   {"f",        cmd_zoom_fit},
   {"F",        cmd_zoom_fill},
@@ -688,6 +699,10 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       do_dither = 0;
     }
+    else if (!strcmp (argv[x], "-t"))
+    {
+      cmd_thumbs ();
+    }
     else if (!strcmp (argv[x], "-s"))
     {
       cmd_slideshow ();
@@ -852,6 +867,36 @@ gen_thumb (const char *path, uint8_t *rgba, int w, int h)
   make_thumb (thumb_path, rgba, w, h, 128);
 }
 
+int clear = 0;
+
+void redraw()
+{
+  int outw = desired_width;
+  int outh = desired_height;
+               
+  unsigned char *rgba = calloc (outw * 4 * outh, 1);
+
+  resample_image (image, 
+                  image_w,
+                  image_h,
+                  rgba,
+                  outw,
+                  outh,
+                  x_offset,
+                  y_offset,
+                  factor,
+                  aspect,
+                  rotate);
+  if (clear)
+  {
+    fprintf (stderr, "c");
+    clear = 0;
+  }
+  paint_rgba (&tfb, rgba, outw, outh);
+  gen_thumb(path, image, image_w, image_h);
+  free (rgba);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -862,13 +907,12 @@ main (int argc, char **argv)
 
   parse_args (&tfb, argc, argv);
   time_remaining = delay;   /* do this initialization after
-                               argument parsing has settled down
-                             */
+                               argument parsing has settled down */
   images[images_c] = NULL;
 
   if (images_c <= 0)
     {
-       usage ();
+      usage ();
     }
 
   if (strstr (images[0], ".pdf") ||
@@ -901,7 +945,6 @@ main (int argc, char **argv)
     zero_origin = 1;
     _nc_raw();
   }
-
 
   message = strdup ("press ? or h for help");
   message_ttl = 2;
@@ -936,51 +979,23 @@ interactive_load_image:
         y_offset = 0.0;
       }
     }
-
+#if 0
     if (!image)
     {
       printf ("\n\n");
       return -1;
     }
-
-    int clear = 0;
-
+#endif
     interactive_again:
     if (0){}
 
-    int outw = desired_width;
-    int outh = desired_height;
-               
+    redraw ();
+
+    if (interactive)
     {
-      unsigned char *rgba = calloc (outw * 4 * outh, 1);
-
-      resample_image (image, 
-                      image_w,
-                      image_h,
-                      rgba,
-                      outw,
-                      outh,
-                      x_offset,
-                      y_offset,
-                      factor,
-                      aspect,
-                      rotate);
-      if (clear)
-      {
-         fprintf (stderr, "c");
-         clear = 0;
-      }
-      paint_rgba (&tfb, rgba, outw, outh);
-      gen_thumb(path, image, image_w, image_h);
-
-      free (rgba);
-
-      if (interactive)
-      {
-        ev_again:
-        print_status ();
-
-        switch (handle_input())
+      ev_again:
+      print_status ();
+      switch (handle_input())
         {
           case REQUIT:  printf ("."); exit(0); break;
           case REDRAW:  goto interactive_again;
@@ -1001,16 +1016,15 @@ interactive_load_image:
             goto ev_again;
             break;
         }
-      }
     }
-    free (image);
-    image = NULL;
-    if (image_no < images_c - 1)
-    {
-      usleep (delay * 1000.0 * 1000.0);
-      printf ("\n");
-      cmd_next ();
-    }
+  }
+  free (image);
+  image = NULL;
+  if (image_no < images_c - 1)
+  {
+    usleep (delay * 1000.0 * 1000.0);
+    printf ("\n");
+    cmd_next ();
   }
   printf ("\r");
   return 0;
