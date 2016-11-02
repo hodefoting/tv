@@ -833,15 +833,19 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   free (trgba);
 }
 
-void
-gen_thumb (const char *path, uint8_t *rgba, int w, int h)
+char make_thumb_path (const char *path, char *thumb_path)
 {
   char resolved[4096];
   if (!realpath (path, resolved))
     strcpy (resolved, path);
-  char thumb_path[4096];
   sprintf (thumb_path, "/tmp/.tv/%s", resolved);
+}
 
+void
+gen_thumb (const char *path, uint8_t *rgba, int w, int h)
+{
+  char thumb_path[4096];
+  make_thumb_path (path, thumb_path);
   make_thumb (thumb_path, rgba, w, h, 128);
 }
 
