@@ -816,20 +816,23 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   }
 
   uint8_t *trgba = malloc (dim * dim * 4);
+  float f = dim / (w * 1.0);
+  if (f > dim / (h * 1.0))
+    f = dim / (h * 1.0);
+
   resample_image (rgba, w, h,
                   trgba,
-                  dim,
-                  dim,
+                  w * f,
+                  h * f,
                   0.0,
                   0.0,
-                  1.0,
+                  1.0/f,
                   1.0,
                   rotate);
 
   if (!realpath (path, resolved))
     strcpy (resolved, path);
-  stbi_write_png (resolved, dim, dim, 4, trgba, dim * 4);
-  //free (resolved);
+  stbi_write_png (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
   free (trgba);
 }
 
