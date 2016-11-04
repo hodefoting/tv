@@ -38,6 +38,7 @@ int            zero_origin = 0;
 int            interactive = 1;
 
 int            thumbs = 0;
+float          DIVISOR=5.0;
 
 Tfb tfb = {
 1,1,1,-1,0,1,1,TV_AUTO
@@ -355,6 +356,12 @@ EvReaction cmd_verbosity (void)
 
 EvReaction cmd_zoom_in_small (void)
 {
+  if (thumbs)
+  {
+    DIVISOR /= ZOOM_FACTOR_SMALL;
+    return REDRAW;
+  }
+
   if (x_offset == 0.0 && y_offset == 0.0)
   {
     factor /= ZOOM_FACTOR_SMALL;
@@ -375,6 +382,13 @@ EvReaction cmd_zoom_in_small (void)
 
 EvReaction cmd_zoom_out_small (void)
 {
+  if (thumbs)
+  {
+    DIVISOR *= ZOOM_FACTOR_SMALL;
+    return REDRAW;
+  }
+
+
   x_offset += desired_width * 0.5 * factor ;
   y_offset += desired_height * 0.5 * factor ;
 
@@ -387,6 +401,12 @@ EvReaction cmd_zoom_out_small (void)
 
 EvReaction cmd_zoom_in (void)
 {
+  if (thumbs)
+  {
+    DIVISOR /= ZOOM_FACTOR;
+    return REDRAW;
+  }
+
   if (x_offset == 0.0 && y_offset == 0.0)
   {
     factor /= ZOOM_FACTOR;
@@ -407,6 +427,11 @@ EvReaction cmd_zoom_in (void)
 
 EvReaction cmd_zoom_out (void)
 {
+  if (thumbs)
+  {
+    DIVISOR *= ZOOM_FACTOR;
+    return REDRAW;
+  }
   x_offset += desired_width * 0.5 * factor ;
   y_offset += desired_height * 0.5 * factor ;
 
@@ -798,11 +823,34 @@ void resample_image (const unsigned char *image,
                      unsigned char       *rgba,
                      int                  outw,
                      int                  outh,
+                     int                  outs,
                      float                x_offset,
                      float                y_offset,
                      float                factor,
                      float                aspect,
                      int                  rotate);
+
+void fill_rect (unsigned char *rgba,
+                int            outw,
+                int            outh,
+                int            outs,
+                int            r, int g, int b)
+{
+  int y, x;
+  /* do resampling as part of view, not as a separate step */
+  for (y = 0; y < outh; y++)
+  {
+    int i = y * outs;
+    for (x = 0; x < outw; x ++)
+    {
+      rgba[i + 0] = r;
+      rgba[i + 1] = g;
+      rgba[i + 2] = b;
+      rgba[i + 3] = 255;
+      i+= 4;
+    }
+  }
+}
 
 int sixel_is_supported (void);
 
@@ -810,7 +858,14 @@ int sixel_is_supported (void);
 
 #include "stb_image_write.h"
 
-
+int is_file (const char *path)
+{
+  struct stat stat_buf;
+  if (stat (path, &stat_buf)==0 &&
+      S_ISREG(stat_buf.st_mode))
+    return 1;
+  return 0;
+}
 
 void
 make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
@@ -819,9 +874,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   if (!realpath (path, resolved))
     strcpy (resolved, path);
 
-  struct stat stat_buf;
-  if (stat (resolved, &stat_buf)==0 &&
-      S_ISREG(stat_buf.st_mode))
+  if (is_file (resolved))
     return;
 
   while (strrchr (resolved, '/'))
@@ -839,6 +892,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
                   trgba,
                   w * f,
                   h * f,
+                  ((int)(w*f)) * 4,
                   0.0,
                   0.0,
                   1.0/f,
@@ -856,7 +910,7 @@ char make_thumb_path (const char *path, char *thumb_path)
   char resolved[4096];
   if (!realpath (path, resolved))
     strcpy (resolved, path);
-  sprintf (thumb_path, "/tmp/.tv/%s", resolved);
+  sprintf (thumb_path, "/tmp/tv%s", resolved);
 }
 
 void
@@ -876,24 +930,85 @@ void redraw()
                
   unsigned char *rgba = calloc (outw * 4 * outh, 1);
 
-  resample_image (image, 
+  if(!thumbs && image)resample_image (image, 
                   image_w,
                   image_h,
                   rgba,
                   outw,
                   outh,
+                  outw * 4,
                   x_offset,
                   y_offset,
                   factor,
                   aspect,
                   rotate);
+
+
+  if (thumbs)
+  {
+  int x = 10;
+  int y = 10;
+
+  for (int i = 0; i < images_c && images[i] && y < outh; i ++)
+  {
+    char thumb_path[4096];
+    make_thumb_path (images[i], thumb_path);
+    int image_w, image_h;
+
+    uint8_t *image = 
+            is_file (thumb_path) ?
+            image_load (thumb_path, &image_w, &image_h, NULL) : NULL;
+
+    if (image)
+    {
+     float factor = (1.0 * outw/DIVISOR) / image_w;
+     int h = outh - y;
+     if (h > image_h * (outw/DIVISOR)/image_w / aspect - 4)
+       h = image_h * (outw/DIVISOR)/image_w / aspect - 4;
+
+     if (i == image_no)
+     {
+        if(0)fill_rect(rgba + (outw * (y-2) + (x-2)) * 4,
+                  outw/DIVISOR+4, h+4, outw * 4,
+                  0,0,0);
+        fill_rect(rgba + (outw * (y-1) + (x-1)) * 4,
+                  outw/DIVISOR+2, h+2, outw * 4,
+                  255,0,0);
+     }
+     resample_image (image, image_w, image_h,
+                     rgba + (outw * y + x) * 4,
+                     outw/DIVISOR, h, outw * 4,
+                     0, 0, 1.0/factor, aspect, 0);
+     free (image);
+    }
+    else
+    {
+    }
+
+
+     x += outw/DIVISOR * 1.1;
+     if (x + outw/DIVISOR * 1.1 > outw)
+     {
+        x = 10;
+        y += outw/DIVISOR * 1.1 / aspect;
+     }
+  }
+  }
+
+
+
   if (clear)
   {
     fprintf (stderr, "c");
     clear = 0;
   }
   paint_rgba (&tfb, rgba, outw, outh);
+
+
+  if (image && !thumbs)
   gen_thumb(path, image, image_w, image_h);
+
+
   free (rgba);
 }
 
@@ -904,7 +1019,6 @@ main (int argc, char **argv)
      gets to override these dimensions further 
    */
   init (&tfb, &desired_width, &desired_height);
-
   parse_args (&tfb, argc, argv);
   time_remaining = delay;   /* do this initialization after
                                argument parsing has settled down */
@@ -1017,15 +1131,20 @@ interactive_load_image:
             break;
         }
     }
+    else
+    {
+
+      if (image_no < images_c - 1)
+      {
+        usleep (delay * 1000.0 * 1000.0);
+        printf ("\n");
+      }
+    }
   }
-  free (image);
+
+  if (image)
+    free (image);
   image = NULL;
-  if (image_no < images_c - 1)
-  {
-    usleep (delay * 1000.0 * 1000.0);
-    printf ("\n");
-    cmd_next ();
-  }
   printf ("\r");
   return 0;
 }
