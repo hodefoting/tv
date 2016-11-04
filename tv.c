@@ -509,6 +509,9 @@ EvReaction cmd_quit (void)
 
 EvReaction cmd_next (void)
 {
+  if (image)
+    free (image);
+  image = NULL;
   image_no ++;
   if (image_no >= images_c)
   {
@@ -524,6 +527,9 @@ EvReaction cmd_next (void)
 
 EvReaction cmd_prev (void)
 {
+  if (image)
+    free (image);
+  image = NULL;
   image_no --;
   if (image_no < 0)
     image_no = 0;
@@ -995,8 +1001,6 @@ void redraw()
   }
   }
 
-
-
   if (clear)
   {
     fprintf (stderr, "c");
@@ -1004,10 +1008,8 @@ void redraw()
   }
   paint_rgba (&tfb, rgba, outw, outh);
 
-
   if (image && !thumbs)
   gen_thumb(path, image, image_w, image_h);
-
 
   free (rgba);
 }
@@ -1065,9 +1067,12 @@ main (int argc, char **argv)
 
   for (image_no = 0; image_no < images_c; image_no++)
   {
-interactive_load_image:
-    //fprintf (stderr,"[%s]\n", images[image_no]);
+    interactive_load_image:
+    interactive_again:
+    if (0){}
 
+    if (!image && !thumbs)
+    {
     if (pdf)
       path = prepare_pdf_page (pdf_path, image_no+1);
     else
@@ -1093,6 +1098,7 @@ interactive_load_image:
         y_offset = 0.0;
       }
     }
+    }
 #if 0
     if (!image)
     {
@@ -1100,8 +1106,6 @@ interactive_load_image:
       return -1;
     }
 #endif
-    interactive_again:
-    if (0){}
 
     redraw ();
 
