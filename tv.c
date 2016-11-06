@@ -16,11 +16,13 @@
 #include <stdint.h>
 #include <assert.h>
 #include <unistd.h>
+#include <ftw.h>
 #include "tfb.h"
 
 float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
+float          y_offset_thumb = 0.0;
 int            do_dither      = 1;
 int            grayscale      = 0;
 int            slideshow      = 0;
@@ -36,7 +38,6 @@ const char    *path        = NULL;
 int            pdf         = 0;
 int            zero_origin = 0;
 int            interactive = 1;
-
 int            thumbs = 0;
 float          DIVISOR=5.0;
 
@@ -51,7 +52,7 @@ int rotate = 0;
 #define JUMPLEN 0.50
 #define JUMPSMALLLEN 0.05
 
-char *images[4096]={0,};
+char *images[40960]={0,};
 const char *pdf_path = NULL;
 int images_c = 0;
 
@@ -185,15 +186,23 @@ EvReaction cmd_help (void)
 
 EvReaction cmd_up (void)
 {
-  y_offset = y_offset - (desired_height * JUMPLEN) * factor;
+  if (thumbs)
+    y_offset_thumb -= (desired_height * JUMPLEN) ;
+  else
+    y_offset -= (desired_height * JUMPLEN) * factor;
+#if 0
   if (y_offset < 0)
     y_offset = 0;
+#endif
   return REDRAW;
 }
 
 EvReaction cmd_down (void)
 {
-  y_offset = y_offset + (desired_height * JUMPLEN) * factor;
+  if (thumbs)
+    y_offset_thumb += (desired_height * JUMPLEN) ;
+  else
+    y_offset += (desired_height * JUMPLEN) * factor;
   return REDRAW;
 }
 
@@ -206,8 +215,10 @@ EvReaction cmd_right (void)
 EvReaction cmd_left (void)
 {
   x_offset = x_offset - (desired_height* JUMPLEN) * factor;
+#if 0
   if (x_offset < 0)
     x_offset = 0;
+#endif
   return REDRAW;
 }
 
@@ -710,7 +721,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
   int x;
   for (x = 1; argv[x]; x++)
   {
-    if (!strcmp (argv[x], "--help"))
+    if (!strcmp (argv[x], "--help") || !strcmp (argv[x], "--help"))
     {
       usage ();
     }
@@ -953,7 +964,7 @@ void redraw()
   if (thumbs)
   {
   int x = 10;
-  int y = 10;
+  int y = 10 - y_offset_thumb;
 
   for (int i = 0; i < images_c && images[i] && y < outh; i ++)
   {
@@ -962,10 +973,10 @@ void redraw()
     int image_w, image_h;
 
     uint8_t *image = 
-            is_file (thumb_path) ?
+            is_file (thumb_path) && y >=0 ?
             image_load (thumb_path, &image_w, &image_h, NULL) : NULL;
 
-    if (image)
+    if (image && y >= 0)
     {
      float factor = (1.0 * outw/DIVISOR) / image_w;
      int h = outh - y;
@@ -1014,6 +1025,24 @@ void redraw()
   free (rgba);
 }
 
+static long spider_count = 0;
+static long spider_img_count = 0;
+static int ftw_cb (const char *path, const struct stat *info, const int typeflag)
+{
+  if (!strstr (path, "/tmp/") && (strstr (path, ".png") ||
+      strstr (path, ".PNG") ||
+      strstr (path, ".gif") ||
+      strstr (path, ".GIF") ||
+      strstr (path, ".jpg") ||
+      strstr (path, ".JPG")))
+  {
+    images[images_c++]=strdup(path);
+    images[images_c]=0;
+  }
+  spider_count ++;
+  return 0;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -1028,7 +1057,14 @@ main (int argc, char **argv)
 
   if (images_c <= 0)
     {
-      usage ();
+      /* no arguments, launch the image viewer */
+      /*usage ();*/
+
+      ftw ("/home/", ftw_cb, 200);
+      ftw ("/usr/share/wallpapers", ftw_cb, 200);
+      ftw ("/media", ftw_cb, 200);
+      fprintf (stderr, "%li paths examined\n", spider_count);
+      sleep (1);
     }
 
   if (strstr (images[0], ".pdf") ||
@@ -1073,39 +1109,32 @@ main (int argc, char **argv)
 
     if (!image && !thumbs)
     {
-    if (pdf)
-      path = prepare_pdf_page (pdf_path, image_no+1);
-    else
-      path = images[image_no];
-
-    if (image)
-      free (image);
-    image = NULL;
-    image = image_load (path, &image_w, &image_h, NULL);
-    if (!image)
-    {
-      cmd_next ();
-      goto interactive_load_image;
-    }
-    tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
-
-    if (factor < 0)
-    {
-      cmd_zoom_fill ();
       if (pdf)
+        path = prepare_pdf_page (pdf_path, image_no+1);
+      else
+        path = images[image_no];
+
+      if (image)
+        free (image);
+      image = NULL;
+      image = image_load (path, &image_w, &image_h, NULL);
+      if (!image)
       {
-        x_offset = 0.0;
-        y_offset = 0.0;
+        cmd_next ();
+        goto interactive_load_image;
+      }
+      tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
+
+      if (factor < 0)
+      {
+        cmd_zoom_fill ();
+        if (pdf)
+        {
+          x_offset = 0.0;
+          y_offset = 0.0;
+        }
       }
     }
-    }
-#if 0
-    if (!image)
-    {
-      printf ("\n\n");
-      return -1;
-    }
-#endif
 
     redraw ();
 
@@ -1116,8 +1145,8 @@ main (int argc, char **argv)
       switch (handle_input())
         {
           case REQUIT:  printf ("."); exit(0); break;
-          case REDRAW:  goto interactive_again;
-          case RELOAD:  goto interactive_load_image;
+          case REDRAW: 
+          case RELOAD:  goto interactive_again;
           case REEVENT: goto ev_again;
           case RENONE:
           case REIDLE:
@@ -1137,7 +1166,6 @@ main (int argc, char **argv)
     }
     else
     {
-
       if (image_no < images_c - 1)
       {
         usleep (delay * 1000.0 * 1000.0);
