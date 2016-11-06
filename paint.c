@@ -1140,16 +1140,19 @@ int sixel_is_supported (void)
   int xb, yb;
   if (inited == -22)
   {
-  term_get_xy (&ox, &oy);
-  printf ("[1;4H");
-  term_get_xy (&x, &y);
-  sixel_start ();
-  printf ("#1---------A-");
-  sixel_end ();
-  printf ("\r");
-  term_get_xy (&xb, &yb);
-  printf ( "[%d;%dH", oy, ox);
-  fflush(NULL);
+   term_get_xy (&ox, &oy);
+   printf ("[1;1H");
+   printf ("\r");
+   fflush(NULL);
+   term_get_xy (&x, &y);
+   sixel_start ();
+   sixel_outf ("#1---ab7878-----A-");
+   sixel_end ();
+   printf ("\r");
+   fflush(NULL);
+   term_get_xy (&xb, &yb);
+   printf ( "[%d;%dH", oy, ox);
+   fflush(NULL);
    inited = (y != yb);
   }
   return inited;

@@ -1060,8 +1060,8 @@ main (int argc, char **argv)
       /*usage ();*/
 
       ftw ("/home", ftw_cb, 40);
-      ftw ("/media", ftw_cb, 40);
-      ftw ("/usr/share/wallpapers", ftw_cb, 40);
+      //ftw ("/media", ftw_cb, 40);
+      //ftw ("/usr/share/wallpapers", ftw_cb, 40);
               fprintf (stderr, "%li paths examined\n", spider_count);
       verbosity = -1;
       slideshow = 1;
