@@ -798,6 +798,14 @@ void dither_rgba (Tfb *tfb,
   }
 }
 
+void set_fg(int red, int green, int blue)
+{
+  sixel_outf("[48;2;%i;%i;%im", red,green,blue);
+}
+void set_bg(int red, int green, int blue)
+{
+  sixel_outf("[38;2;%i;%i;%im", red,green,blue);
+}
 
 void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 {
@@ -844,11 +852,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           if (tfb->interactive)
             term_home ();
           /* quantization used for approximate matches */
-          //uint32_t mask = 0xf8fcf8f8;
           uint32_t mask = 0xf0f0f0f0;
-          //uint32_t mask = 0xc0c0c0c0;
-          //uint32_t mask = 0x80808080;
-          //uint32_t mask = 0xffffffff;
 
           for (int y = 0; y < outh-4; y+=4)
           {
@@ -1030,13 +1034,13 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 
               if (best_is_inverted)
               {
-                sixel_outf("[48;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
-                sixel_outf("[38;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+                set_fg ((maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
+                set_bg ((secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
               }
               else
               {
-                sixel_outf("[38;2;%i;%i;%im", (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff );
-                sixel_outf("[48;2;%i;%i;%im", (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff );
+                set_bg ((maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
+                set_fg ((secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
               }
 
               sixel_outf(glyphs[best_glyph].utf8);
