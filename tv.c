@@ -922,7 +922,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   free (trgba);
 }
 
-char make_thumb_path (const char *path, char *thumb_path)
+void make_thumb_path (const char *path, char *thumb_path)
 {
   char resolved[4096];
   if (!realpath (path, resolved))
@@ -1026,7 +1026,6 @@ void redraw()
 }
 
 static long spider_count = 0;
-static long spider_img_count = 0;
 static int ftw_cb (const char *path, const struct stat *info, const int typeflag)
 {
   if (!strstr (path, "/tmp/") && (strstr (path, ".png") ||
@@ -1060,11 +1059,13 @@ main (int argc, char **argv)
       /* no arguments, launch the image viewer */
       /*usage ();*/
 
-      ftw ("/home/", ftw_cb, 200);
-      ftw ("/usr/share/wallpapers", ftw_cb, 200);
-      ftw ("/media", ftw_cb, 200);
-      fprintf (stderr, "%li paths examined\n", spider_count);
-      sleep (1);
+      ftw ("/home", ftw_cb, 40);
+      ftw ("/media", ftw_cb, 40);
+      ftw ("/usr/share/wallpapers", ftw_cb, 40);
+              fprintf (stderr, "%li paths examined\n", spider_count);
+      verbosity = -1;
+      slideshow = 1;
+      delay = 7;
     }
 
   if (strstr (images[0], ".pdf") ||
