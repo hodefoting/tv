@@ -17,6 +17,7 @@
 #include "tfb.h"
 
 
+int pure24 = 0; // set to 1,. to not do 256color compatibility
 
 
 static inline long coldiff(uint32_t col1, uint32_t col2)
@@ -798,13 +799,46 @@ void dither_rgba (Tfb *tfb,
   }
 }
 
+
 void set_fg(int red, int green, int blue)
 {
-  sixel_outf("[48;2;%i;%i;%im", red,green,blue);
+  if (pure24)
+  {
+    sixel_outf("[48;2;%i;%i;%im", red,green,blue);
+  }
+  else
+  {
+    int gray = green * 24 / 256.0;
+    int r = red * 6 / 256.0;
+    int g = green * 6 / 256.0;
+    int b = blue * 6 / 256.0;
+    if (r == g && g == b)
+    {
+      sixel_outf("[48;5;%im", 16 + 216 + gray);
+    }
+    else
+      sixel_outf("[48;5;%im", 16 + r * 6 * 6 + g * 6  + b);
+  }
 }
 void set_bg(int red, int green, int blue)
 {
-  sixel_outf("[38;2;%i;%i;%im", red,green,blue);
+  if (pure24)
+  {
+    sixel_outf("[38;2;%i;%i;%im", red,green,blue);
+  }
+  else
+  {
+    int gray = green * 24 / 256.0;
+    int r = red * 6 / 256.0;
+    int g = green * 6 / 256.0;
+    int b = blue * 6 / 256.0;
+    if (r == g && g == b)
+    {
+      sixel_outf("[38;5;%im", 16 + 216 + gray);
+    }
+    else
+      sixel_outf("[38;5;%im", 16 + r * 6 * 6 + g * 6  + b);
+  }
 }
 
 void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
