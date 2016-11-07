@@ -969,31 +969,32 @@ void blit_sixel_pal (unsigned int        *pal,
     for (blue  = 0; blue  < blue_max;  blue++)
     {
       int setpal = 0;
+      int offset = y * outw;
 
       for (x = 0; x < outw; x ++)
       {
         int sixel = 0;
-        int v;
-        for (v = 0; v < 6; v++) // XXX: the code redithers,
-                                //      instead of dithering to
-                                //      a tempbuf and then blitting that
-                                //      buf to sixel
           {
-            int got_coverage = 0;
-            int offset = ((y + v) * outw + x) * 4;
-            got_coverage = pal[offset+3] >= 0;
-
-            if (got_coverage)
-              if (pal[offset/4] == palno)
-                sixel |= (1<<v);
+            int offset3 = offset;
+            sixel |= pal[offset3] == palno ? 1 : 0;
+            offset3+=outw;
+            sixel |= pal[offset3] == palno ? 2 : 0;
+            offset3+=outw;
+            sixel |= pal[offset3] == palno ? 4 : 0;
+            offset3+=outw;
+            sixel |= pal[offset3] == palno ? 8 : 0;
+            offset3+=outw;
+            sixel |= pal[offset3] == palno ? 16 : 0;
+            offset3+=outw;
+            sixel |= pal[offset3] == palno ? 32 : 0;
           }
-
           if (sixel && !setpal)
             {
-               sixel_outf ( "#%d", palno);
-               setpal = 1;
+              sixel_outf ( "#%d", palno);
+              setpal = 1;
             }
           sixel_out (sixel);
+          offset ++;
        }
 
 #ifdef SKIP_FULL_BLANK_ROWS
