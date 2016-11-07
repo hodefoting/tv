@@ -16,7 +16,6 @@
 #include <assert.h>
 #include "tfb.h"
 
-
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
   int a = (col1 & 0xff) - (col2 & 0xff);
@@ -24,7 +23,6 @@ static inline long coldiff(uint32_t col1, uint32_t col2)
   int c = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
   return a * a + b * b + c * c;
 }
-
 
 typedef struct UnicodeGlyph
 {

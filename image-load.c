@@ -48,7 +48,9 @@ unsigned char *jpeg_load (const char *filename,
   row_stride = cinfo.output_width * cinfo.output_components;
   buffer = (*cinfo.mem->alloc_sarray)
 		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+
   /* XXX: need a bit more, jpeg lib overwrites by some bytes.. */
+
   retbuf = malloc (cinfo.output_width * (cinfo.output_height + 1) * 4);
   *width = cinfo.output_width;
   *height = cinfo.output_height;
@@ -250,8 +252,7 @@ void resample_image (const unsigned char *image,
               accumulated[3] /= c;
         }
       for (int c = 0; c < 4; c++)
-      rgba[i + c] =
-         accumulated[c]>255?255:(accumulated[c]<0?0:accumulated[c]);
+      rgba[i + c] = accumulated[c];
       i+= 4;
     }
   }
