@@ -1,4 +1,4 @@
-// XXX: trim includs
+// XXX: trim includes
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 
@@ -177,7 +177,6 @@ void resample_image (const unsigned char *image,
                      int                  rotate)
 {
   int y, x;
-  /* do resampling as part of view, not as a separate step */
   for (y = 0; y < outh; y++)
   {
     int i = y * outs;
@@ -257,4 +256,3 @@ void resample_image (const unsigned char *image,
     }
   }
 }
-
