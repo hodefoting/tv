@@ -223,25 +223,34 @@ void resample_image (const unsigned char *image,
           if (q1 == q0) q1 = q0+1;
           if (z1 == z0) z1 = z0+1;
 
-          for (q = q0; q<q1; q++)
-            for (z = z0; z<z1; z++)
-              {
-                switch (rotate)
+          switch (rotate)
+          {
+            case 90:
+              for (q = q0; q<q1; q++)
+                for (z = z0; z<z1; z++)
                 {
-                  case 90:
-                    offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
-                    break;
-                  case 0:
-                  default:
-                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                    break;
+                  offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
+                  accumulated[0] += image[offset2 + 0];
+                  accumulated[1] += image[offset2 + 1];
+                  accumulated[2] += image[offset2 + 2];
+                  accumulated[3] += image[offset2 + 3];
+                  c++;
                 }
-                accumulated[0] += image[offset2 + 0];
-                accumulated[1] += image[offset2 + 1];
-                accumulated[2] += image[offset2 + 2];
-                accumulated[3] += image[offset2 + 3];
-                c++;
-              }
+              break;
+            case 0:
+            default:
+              for (q = q0; q<q1; q++)
+                for (z = z0; z<z1; z++)
+                  {
+                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                    accumulated[0] += image[offset2 + 0];
+                    accumulated[1] += image[offset2 + 1];
+                    accumulated[2] += image[offset2 + 2];
+                    accumulated[3] += image[offset2 + 3];
+                    c++;
+                  }
+              break;
+          }
         }
 
       switch (c)
