@@ -1231,6 +1231,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               int best_is_inverted = 0;
               int rgbo = y * outw * 4 + x * 4;
 
+              /* find dominant/foreground color:  */
               uint32_t maxc = 0;
               uint32_t secondmaxc = 0;
               int counts[16]={0,0,0,0};
@@ -1238,6 +1239,15 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               int max = 0;
               int secondmax = 0;
               int c = 0;
+
+              if (tfb->bw )
+              {
+                maxc = 255 + 255 * 256 + 255 * 256 * 256;
+                secondmaxc = 0;
+              }
+              else
+              {
+
               for (int u = 0; u < 4; u++)
               for (int v = 0; v < 6; v++)
                 {
@@ -1275,6 +1285,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   secondmax = counts[i];
                   secondmaxc = colors[i];
                 }
+              }
               }
 
               for (int i = 0; glyphs[i].utf8; i++)
@@ -1319,7 +1330,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   best_glyph = i;
                   best_is_inverted = 0;
                 }
-                if (rmatches > best_matches)
+                if (! tfb->bw && rmatches > best_matches)
                 {
                   best_matches = rmatches;
                   best_glyph = i;
@@ -1328,7 +1339,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               }
 
               /* XXX: re-calibrate color to actual best colors for glyph*/
-              if(1){
+              if(! tfb->bw){
                 long red0 = 0, green0 = 0, blue0 = 0;
                 long red1 = 0, green1 = 0, blue1 = 0;
                 int bitno = 0;

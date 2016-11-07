@@ -1,6 +1,6 @@
-CFLAGS=-std=c99  -g  -O2
+CFLAGS=-std=c99  -g 
 
-tv: *.c
+tv: *.c tfb.h
 	$(CC) $(CFLAGS) -o $@ *.c -lm `pkg-config --cflags --libs libjpeg libpng --static`
 clean:
 	rm tv

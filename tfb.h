@@ -4,7 +4,9 @@ typedef enum {TV_AUTO,
               TV_SIXEL,
               TV_SIXEL_HI,
               TV_UTF8,
-              TV_FB} TvOutput;
+              TV_BW,
+              TV_FB,
+} TvOutput;
 
 typedef struct Tfb {
   int      fb_bpp;
@@ -15,6 +17,7 @@ typedef struct Tfb {
   int      do_dither;
   int      interactive;
   int      term256;
+  int      bw;
   TvOutput tv_mode;
 } Tfb;
 

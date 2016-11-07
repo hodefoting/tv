@@ -23,7 +23,6 @@ float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
 float          y_offset_thumb = 0.0;
-int            do_dither      = 1;
 int            grayscale      = 0;
 int            slideshow      = 0;
 float          delay          = 4.0;
@@ -42,7 +41,7 @@ int            thumbs = 0;
 float          DIVISOR=5.0;
 
 Tfb tfb = {
-1,1,1,-1,0,1,1,TV_AUTO
+1,1,1,-1,0,1,1,1,TV_AUTO
 };
 
 float aspect = 1.0;
@@ -258,7 +257,7 @@ EvReaction cmd_grayscale (void)
 
 EvReaction cmd_do_dither (void)
 {
-  do_dither = !do_dither;
+  tfb.do_dither = !tfb.do_dither;
   return REDRAW;
 }
 
@@ -708,7 +707,7 @@ void print_status (void)
     {
       if (grayscale)
         printf (" -g");
-      if (!do_dither)
+      if (!tfb.do_dither)
         printf (" -nd");
 
       printf (" -p %d", tfb.palcount);
@@ -724,6 +723,10 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     if (!strcmp (argv[x], "--help") || !strcmp (argv[x], "--help"))
     {
       usage ();
+    }
+    else if (!strcmp (argv[x], "-bw"))
+    {
+      tfb->bw = 1;
     }
     else if (!strcmp (argv[x], "-term256"))
     {
@@ -743,7 +746,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-nd"))
     {
-      do_dither = 0;
+      tfb->do_dither = 0;
     }
     else if (!strcmp (argv[x], "-t"))
     {
@@ -958,8 +961,8 @@ void redraw()
                   outw,
                   outh,
                   outw * 4,
-                  x_offset,
-                  y_offset,
+                  floor(x_offset),
+                  floor(y_offset),
                   factor,
                   aspect,
                   rotate);
