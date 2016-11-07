@@ -583,11 +583,11 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           /* quantization used for approximate matches */
           uint32_t mask = 0xf8f8f8f8;
 
-          for (int y = 0; y < outh-6; y+=6)
+          for (int y = 0; y < outh-GLYPH_HEIGHT; y+= GLYPH_HEIGHT)
           {
             curfg = -1;
             curbg = -1;
-            for (int x = 0; x < outw - 4; x+=4)
+            for (int x = 0; x < outw ; x+= GLYPH_WIDTH)
             {
               int best_glyph = 0;
               int best_matches = 0;
