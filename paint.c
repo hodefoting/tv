@@ -1286,9 +1286,11 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 int rmatches = 0;
                 int bitno = 0;
                 for (int v = 5; v >=0; v --)
+                {
+                  int rgbo2 = rgbo + outw * 4 * v;
                   for (int u = 3; u >=0; u --)
                   {
-                    uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
+                    uint32_t col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
                     long d1 = coldiff(col, maxc);
                     long d2 = coldiff(col, secondmaxc);
                     int col1 = 0;
@@ -1307,11 +1309,12 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                     {
                       if ((glyphs[i].bitmap & (1<<bitno)) == 0)
                         matches ++;
-                      if (((!glyphs[i].bitmap) & (1<<bitno) == 0))
+                      if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
                         rmatches ++;
                     }
                     bitno++;
                   }
+                }
 
                 if (matches > best_matches)
                 {
