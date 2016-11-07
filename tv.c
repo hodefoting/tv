@@ -947,6 +947,11 @@ gen_thumb (const char *path, uint8_t *rgba, int w, int h)
 
 int clear = 0;
 
+static inline float mask_a (int x, int y, int c)
+{
+  return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
+}
+
 void redraw()
 {
   int outw = desired_width;
@@ -954,7 +959,9 @@ void redraw()
                
   unsigned char *rgba = calloc (outw * 4 * outh, 1);
 
-  if(!thumbs && image)resample_image (image, 
+  if(!thumbs && image)
+  {
+     resample_image (image, 
                   image_w,
                   image_h,
                   rgba,
@@ -966,6 +973,46 @@ void redraw()
                   factor,
                   aspect,
                   rotate);
+
+     if (tfb.bw)
+     {
+       int i = 0;
+       for (int y = 0; y < outh; y++)
+         for (int x = 0; x < outw; x++)
+         {
+           int val = rgba[i+1] + mask_a(x, y, 0) * 256 - 128;
+           if (val > 128)
+           {
+             rgba[i+0]=255;
+             rgba[i+1]=255;
+             rgba[i+2]=255;
+           }
+           else
+           {
+             rgba[i+0]=0;
+             rgba[i+1]=0;
+             rgba[i+2]=0;
+           }
+           i+= 4;
+         }
+     }
+     else if (tfb.do_dither)
+     {
+       int i = 0;
+       for (int y = 0; y < outh; y++)
+         for (int x = 0; x < outw; x++)
+         {
+           for (int c = 0; c < 3; c++)
+           {
+             int val = rgba[i+c] + mask_a(x, y, c) * 256 - 128;
+             val = val * 6 / 255;
+             rgba[i+c]=val * 255 / 6;
+           }
+           i+= 4;
+         }
+
+     }
+  }
 
 
   if (thumbs)
