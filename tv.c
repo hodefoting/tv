@@ -1285,7 +1285,10 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       *dh = size.ws_row * 2;
     }
 
-    aspect = 1.2;
+    if (tfb->tv_mode == TV_ASCII)
+      aspect = 2.0;
+    else
+      aspect = 1.2;
     if (tfb->tv_mode != TV_AUTO)
       return tfb->tv_mode;
     return TV_UTF8;
