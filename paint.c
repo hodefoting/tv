@@ -611,8 +611,8 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               else
               {
 
-              for (int u = 0; u < 4; u++)
-              for (int v = 0; v < 6; v++)
+              for (int v = 0; v < GLYPH_HEIGHT; v++)
+              for (int u = 0; u < GLYPH_WIDTH; u++)
                 {
                   int found = 0;
                   for (int i = 0; i < c && found==0; i++)
@@ -656,10 +656,10 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 int matches = 0;
                 int rmatches = 0;
                 int bitno = 0;
-                for (int v = 5; v >=0; v --)
+                for (int v = GLYPH_HEIGHT-1; v >=0; v --)
                 {
                   int rgbo2 = rgbo + outw * 4 * v;
-                  for (int u = 3; u >=0; u --)
+                  for (int u = GLYPH_WIDTH-1; u >=0; u --)
                   {
                     uint32_t col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
                     long d1 = coldiff(col, maxc);
@@ -707,8 +707,8 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 long red1 = 0, green1 = 0, blue1 = 0;
                 int bitno = 0;
                 int count0 = 0, count1 = 0;
-                for (int v = 5; v >=0; v --)
-                  for (int u = 3; u >=0; u --)
+                for (int v = GLYPH_HEIGHT-1; v >=0; v --)
+                  for (int u = GLYPH_WIDTH-1; u >=0; u --)
                   {
                     uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
 

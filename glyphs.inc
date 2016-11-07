@@ -1,4 +1,6 @@
 
+#define GLYPH_WIDTH   4
+#define GLYPH_HEIGHT  6
 
 typedef struct UnicodeGlyph
 {
@@ -496,10 +498,10 @@ UnicodeGlyph glyphs[]={{
 
 "╳", 0b\
 1001\
-1001\
+1101\
 0110\
 0110\
-1001\
+1011\
 1001},{
 
 "╲", 0b\
