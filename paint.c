@@ -481,6 +481,23 @@ UnicodeGlyph glyphs[]={{
 1100\
 0000},{
 
+
+"^", 0b\
+0110\
+1001\
+0000\
+0000\
+0000\
+0000},{
+
+"l", 0b\
+0000\
+0100\
+0100\
+0100\
+0110\
+0000},{
+
 "1", 0b\
 0000\
 0010\
@@ -493,6 +510,14 @@ UnicodeGlyph glyphs[]={{
 0000\
 1110\
 0010\
+0100\
+0100\
+0000},{
+
+"P", 0b\
+0000\
+0110\
+0110\
 0100\
 0100\
 0000},{
@@ -1186,7 +1211,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           if (tfb->interactive)
             term_home ();
           /* quantization used for approximate matches */
-          uint32_t mask = 0xf0f0f0f0;
+          uint32_t mask = 0xf8f8f8f8;
 
           for (int y = 0; y < outh-6; y+=6)
           {
@@ -1279,7 +1304,6 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   best_is_inverted = 0;
                 }
               }
-
 
               /* do second run in inverse video  */
               for (int i = 20; glyphs[i].utf8; i++)
