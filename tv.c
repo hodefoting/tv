@@ -1024,6 +1024,7 @@ void redraw()
     fprintf (stderr, "c");
     clear = 0;
   }
+
   paint_rgba (&tfb, rgba, outw, outh);
 
   if (image && !thumbs)
