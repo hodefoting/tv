@@ -1277,7 +1277,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     if (tfb->tv_mode == TV_UTF8 || tfb->tv_mode == TV_AUTO)
     {
       *dw = size.ws_col * 4;
-      *dh = size.ws_row * 4;
+      *dh = size.ws_row * 6;
     }
     else
     {
@@ -1285,7 +1285,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       *dh = size.ws_row * 2;
     }
 
-    aspect = 1.9;
+    aspect = 1.2;
     if (tfb->tv_mode != TV_AUTO)
       return tfb->tv_mode;
     return TV_UTF8;
