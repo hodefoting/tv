@@ -702,7 +702,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               }
 
               /* XXX: re-calibrate color to actual best colors for glyph*/
-              if(! tfb->bw){
+              if(! tfb->bw && ! tfb->do_dither){
                 long red0 = 0, green0 = 0, blue0 = 0;
                 long red1 = 0, green1 = 0, blue1 = 0;
                 int bitno = 0;

@@ -974,7 +974,7 @@ void redraw()
                   aspect,
                   rotate);
 
-     if (tfb.bw)
+     if (tfb.bw && tfb.do_dither)
      {
        int i = 0;
        for (int y = 0; y < outh; y++)
@@ -1004,7 +1004,7 @@ void redraw()
          {
            for (int c = 0; c < 3; c++)
            {
-             int val = rgba[i+c] + mask_a(x, y, c) * 256 - 128;
+             int val = rgba[i+c] + mask_a(x, y, c) * 256/6 - 0.5;
              val = val * 6 / 255;
              rgba[i+c]=val * 255 / 6;
            }

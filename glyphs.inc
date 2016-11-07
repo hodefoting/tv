@@ -521,7 +521,7 @@ UnicodeGlyph glyphs[]={{
 0000},{
 #endif
 
-#if 0
+#if 1
 "<", 0b\
 0000\
 0011\
