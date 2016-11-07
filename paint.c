@@ -167,8 +167,6 @@ UnicodeGlyph glyphs[]={{
 1111\
 1111},{
 
-
-
 "⬩", 0b\
 0000\
 0000\
@@ -185,7 +183,6 @@ UnicodeGlyph glyphs[]={{
 0000\
 0000},{
 
-
 "▎", 0b\
 1000\
 1000\
@@ -193,6 +190,14 @@ UnicodeGlyph glyphs[]={{
 1000\
 1000\
 1000},{
+
+"│", 0b\
+0010\
+0010\
+0010\
+0010\
+0010\
+0010},{
 
 "┃", 0b\
 0110\
@@ -273,7 +278,7 @@ UnicodeGlyph glyphs[]={{
 1111\
 0000\
 0000},{
-
+#if 0
 "┣", 0b\
 0110\
 0110\
@@ -281,7 +286,7 @@ UnicodeGlyph glyphs[]={{
 0111\
 0110\
 0110},{
-
+#endif
 "┗", 0b\
 0110\
 0110\
@@ -1273,6 +1278,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               for (int i = 0; glyphs[i].utf8; i++)
               {
                 int matches = 0;
+                int rmatches = 0;
                 int bitno = 0;
                 for (int v = 5; v >=0; v --)
                   for (int u = 3; u >=0; u --)
@@ -1290,52 +1296,27 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                     {
                       if (glyphs[i].bitmap & (1<<bitno))
                         matches ++;
+                      if ((!glyphs[i].bitmap) & (1<<bitno))
+                        rmatches ++;
                     } else if (col2)
                     {
                       if ((glyphs[i].bitmap & (1<<bitno)) == 0)
                         matches ++;
+                      if (((!glyphs[i].bitmap) & (1<<bitno) == 0))
+                        rmatches ++;
                     }
                     bitno++;
                   }
+
                 if (matches > best_matches)
                 {
                   best_matches = matches;
                   best_glyph = i;
                   best_is_inverted = 0;
                 }
-              }
-
-              /* do second run in inverse video  */
-              for (int i = 20; glyphs[i].utf8; i++)
-              {
-                int matches = 0;
-                int bitno = 0;
-                for (int v = 5; v >=0; v --)
-                  for (int u = 3; u >=0; u --)
-                  {
-                    uint32_t col = *((uint32_t*)(&rgba[rgbo + outw * 4 * v + u * 4]));
-                    long d1 = coldiff(col, maxc);
-                    long d2 = coldiff(col, secondmaxc);
-                    int col1 = 0;
-                    int col2 = 0;
-
-                    if (d1 < d2) col1 = 1;
-                    else col2 = 1;
-
-                    if (col1)
-                    {
-                      if ((!glyphs[i].bitmap) & (1<<bitno))
-                        matches ++;
-                    } else if (col2)
-                    {
-                      if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
-                        matches ++;
-                    }
-                    bitno++;
-                  }
-                if (matches >= best_matches)
+                if (rmatches > best_matches)
                 {
-                  best_matches = matches;
+                  best_matches = rmatches;
                   best_glyph = i;
                   best_is_inverted = 1;
                 }
