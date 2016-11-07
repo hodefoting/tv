@@ -1237,6 +1237,8 @@ main (int argc, char **argv)
   return 0;
 }
 
+#include "glyphs.inc"
+
 /* XXX: why do I get compile errors for winsixe struct not having known size when init is moved to paint.c ?*/
 TvOutput init (Tfb *tfb, int *dw, int *dh)
 {
@@ -1327,8 +1329,8 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
   {
     if (tfb->tv_mode == TV_UTF8 || tfb->tv_mode == TV_AUTO)
     {
-      *dw = size.ws_col * 4;
-      *dh = size.ws_row * 6;
+      *dw = size.ws_col * GLYPH_WIDTH;
+      *dh = size.ws_row * GLYPH_HEIGHT;
     }
     else
     {
@@ -1339,7 +1341,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     if (tfb->tv_mode == TV_ASCII)
       aspect = 2.0;
     else
-      aspect = 1.2;
+      aspect = GLYPH_ASPECT;
     if (tfb->tv_mode != TV_AUTO)
       return tfb->tv_mode;
     return TV_UTF8;

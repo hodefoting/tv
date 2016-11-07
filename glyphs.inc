@@ -1,6 +1,7 @@
 
 #define GLYPH_WIDTH   4
 #define GLYPH_HEIGHT  6
+#define GLYPH_ASPECT 1.2
 
 typedef struct UnicodeGlyph
 {
@@ -8,7 +9,7 @@ typedef struct UnicodeGlyph
   uint32_t    bitmap;
 } UnicodeGlyph;
 
-UnicodeGlyph glyphs[]={{
+static UnicodeGlyph glyphs[]={{
         
 " ", 0b\
 0000\
