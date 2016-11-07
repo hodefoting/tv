@@ -727,7 +727,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-term256"))
     {
-      tfb->term256=1;
+      tfb->term256 = 1;
     }
     else if (!strcmp (argv[x], "-v"))
     {

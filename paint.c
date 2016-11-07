@@ -808,9 +808,9 @@ void set_fg(Tfb *tfb, int red, int green, int blue)
   else
   {
     int gray = green * 25 / 255.0;
-    int r = red * 6 / 256.0;
-    int g = green * 6 / 256.0;
-    int b = blue * 6 / 256.0;
+    int r = red * 6 / 255.99;
+    int g = green * 6 / 255.99;
+    int b = blue * 6 / 255.99;
     if (gray > 23) gray = 23;
     if (r == g && g == b)
     {
@@ -829,9 +829,9 @@ void set_bg(Tfb *tfb, int red, int green, int blue)
   else
   {
     int gray = green * 25 / 255.0;
-    int r = red * 6 / 256.0;
-    int g = green * 6 / 256.0;
-    int b = blue * 6 / 256.0;
+    int r = red * 6 / 255.99;
+    int g = green * 6 / 255.99;
+    int b = blue * 6 / 255.99;
     if (gray > 23) gray = 23; 
     if (r == g && g == b)
     {
