@@ -213,15 +213,11 @@ void resample_image (const unsigned char *image,
               got_coverage = image[offset+3]>127;
             break;
       }
-      accumulated[0] = 0;
-      accumulated[1] = 0;
-      accumulated[2] = 0;
-      accumulated[3] = 0;
 
+          int c = 0;
       if (got_coverage)
         {
           int z, q;
-          int c = 0;
           int offset2;
 
           if (q1 == q0) q1 = q0+1;
@@ -246,13 +242,24 @@ void resample_image (const unsigned char *image,
                 accumulated[3] += image[offset2 + 3];
                 c++;
               }
-              accumulated[0] /= c;
-              accumulated[1] /= c;
-              accumulated[2] /= c;
-              accumulated[3] /= c;
         }
-      for (int c = 0; c < 4; c++)
-      rgba[i + c] = accumulated[c];
+
+      switch (c)
+      {
+        case 0:
+        case 1:
+          rgba[i + 0] = accumulated[0];
+          rgba[i + 1] = accumulated[1];
+          rgba[i + 2] = accumulated[2];
+          rgba[i + 3] = accumulated[3];
+          break;
+        default:
+          rgba[i + 0] = accumulated[0]/c;
+          rgba[i + 1] = accumulated[1]/c;
+          rgba[i + 2] = accumulated[2]/c;
+          rgba[i + 3] = accumulated[3]/c;
+          break;
+      }
       i+= 4;
     }
   }
