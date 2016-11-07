@@ -19,11 +19,9 @@
 
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
-  int8_t *c1 = (void*)&col1;
-  int8_t *c2 = (void*)&col2;
-  int a = c1[0]-c2[0];
-  int b = c1[1]-c2[1];
-  int c = c1[2]-c2[2];
+  int a = (col1 & 0xff) - (col2 & 0xff);
+  int b = ((col1>>8) & 0xff) - ((col2>>8) & 0xff);
+  int c = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
   return a * a + b * b + c * c;
 }
 
