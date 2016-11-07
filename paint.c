@@ -17,7 +17,6 @@
 #include "tfb.h"
 
 
-int pure24 = 0; // set to 1,. to not do 256color compatibility
 
 
 static inline long coldiff(uint32_t col1, uint32_t col2)
@@ -800,18 +799,19 @@ void dither_rgba (Tfb *tfb,
 }
 
 
-void set_fg(int red, int green, int blue)
+void set_fg(Tfb *tfb, int red, int green, int blue)
 {
-  if (pure24)
+  if (tfb->term256 == 0)
   {
     sixel_outf("[48;2;%i;%i;%im", red,green,blue);
   }
   else
   {
-    int gray = green * 24 / 256.0;
+    int gray = green * 25 / 255.0;
     int r = red * 6 / 256.0;
     int g = green * 6 / 256.0;
     int b = blue * 6 / 256.0;
+    if (gray > 23) gray = 23;
     if (r == g && g == b)
     {
       sixel_outf("[48;5;%im", 16 + 216 + gray);
@@ -820,18 +820,19 @@ void set_fg(int red, int green, int blue)
       sixel_outf("[48;5;%im", 16 + r * 6 * 6 + g * 6  + b);
   }
 }
-void set_bg(int red, int green, int blue)
+void set_bg(Tfb *tfb, int red, int green, int blue)
 {
-  if (pure24)
+  if (tfb->term256 == 0)
   {
     sixel_outf("[38;2;%i;%i;%im", red,green,blue);
   }
   else
   {
-    int gray = green * 24 / 256.0;
+    int gray = green * 25 / 255.0;
     int r = red * 6 / 256.0;
     int g = green * 6 / 256.0;
     int b = blue * 6 / 256.0;
+    if (gray > 23) gray = 23; 
     if (r == g && g == b)
     {
       sixel_outf("[38;5;%im", 16 + 216 + gray);
@@ -1068,13 +1069,13 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 
               if (best_is_inverted)
               {
-                set_fg ((maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
-                set_bg ((secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
+                set_fg (tfb, (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
+                set_bg (tfb, (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
               }
               else
               {
-                set_bg ((maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
-                set_fg ((secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
+                set_bg (tfb, (maxc)&0xff,(maxc >> 8)&0xff  , (maxc >> 16) & 0xff);
+                set_fg (tfb, (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
               }
 
               sixel_outf(glyphs[best_glyph].utf8);
