@@ -41,7 +41,7 @@ int            thumbs = 0;
 float          DIVISOR=5.0;
 
 Tfb tfb = {
-1,1,1,-1,0,1,1,1,TV_AUTO
+1,1,1,-1,0,1,1,0,0,TV_AUTO
 };
 
 float aspect = 1.0;
