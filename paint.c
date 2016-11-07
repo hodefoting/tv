@@ -17,16 +17,14 @@
 #include "tfb.h"
 
 
-
-
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
   uint8_t *c1 = (void*)&col1;
   uint8_t *c2 = (void*)&col2;
-
-  return ((c1[0]-c2[0])* (c1[0]-c2[0]) +
-          (c1[1]-c2[1])* (c1[1]-c2[1]) +
-          (c1[2]-c2[2])* (c1[2]-c2[2]));
+  int a = c1[0]-c2[0];
+  int b = c1[1]-c2[1];
+  int c = c1[2]-c2[2];
+  return a * a + b * b + c * c;
 }
 
 
