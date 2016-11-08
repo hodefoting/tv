@@ -1141,18 +1141,19 @@ void redraw()
              (rgba[i+2] - rgba[i+1]) * (rgba[i+2] - rgba[i+1]) +
              (rgba[i+2] - rgba[i+0]) * (rgba[i+2] - rgba[i+0]);
 
-           if (graydiff < 900) /* no dithering for things close than this to gray  */
+           if (graydiff < 500) /* no dithering for things close than this to gray  */
            {
-           //  rgba[i+0] = rgba[i+1];
-            // rgba[i+2] = rgba[i+1];
+               rgba[i+0] = rgba[i+1];
+               rgba[i+2] = rgba[i+1];
            }
            else
            for (int c = 0; c < 3; c++)
            {
              /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
              int val = rgba[i+c] + mask_a(x/2, y/2, c) * 256/6 - 0.5;
-             val = val * 6 / 255;
-             rgba[i+c] = val * 255 / 6;
+             val = val * 6 / 255.99;
+
+             rgba[i+c] = val * 255.99 / 6;
            }
            i+= 4;
          }
