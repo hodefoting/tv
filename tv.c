@@ -1141,7 +1141,7 @@ void redraw()
              (rgba[i+2] - rgba[i+1]) * (rgba[i+2] - rgba[i+1]) +
              (rgba[i+2] - rgba[i+0]) * (rgba[i+2] - rgba[i+0]);
 
-           if (graydiff < 500) /* no dithering for things close than this to gray  */
+           if (graydiff < 1000) /* no dithering for things close than this to gray  */
            {
                rgba[i+0] = rgba[i+1];
                rgba[i+2] = rgba[i+1];
