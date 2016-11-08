@@ -41,6 +41,7 @@ int            thumbs = 0;
 float          DIVISOR=5.0;
 
 int            brightness = 0;
+float          contrast   = 1.0;
 
 
 Tfb tfb = {
@@ -241,6 +242,18 @@ EvReaction cmd_down_small (void)
 EvReaction cmd_right_small (void)
 {
   x_offset = x_offset + (desired_height * JUMPSMALLLEN) * factor;
+  return REDRAW;
+}
+
+EvReaction cmd_contrast_up (void)
+{
+  contrast *= 1.1;
+  return REDRAW;
+}
+
+EvReaction cmd_contrast_down (void)
+{
+  contrast /= 1.1;
   return REDRAW;
 }
 
@@ -551,6 +564,7 @@ EvReaction cmd_quit (void)
 void reset_controls (void)
 {
   brightness = 0;
+  contrast = 1;
   time_remaining = delay;
   factor = -1;
 }
@@ -626,6 +640,8 @@ Action actions[] = {
 
   {".",        cmd_brightness_up},
   {",",        cmd_brightness_down},
+  {"<",        cmd_contrast_down},
+  {">",        cmd_contrast_up},
   {NULL, NULL}
 };
 
@@ -1011,18 +1027,19 @@ void redraw()
                   aspect,
                   rotate);
 
-     if (brightness != 0)
+     if (brightness != 0 || contrast != 1.0)
      {
        int i = 0;
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
-           /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
            int c;
            int val;
            for (c = 0; c < 3; c++)
            {
              val = rgba[i+c] + brightness;
+             if (contrast != 1.0)
+                val = (val - 127) * contrast + 127;
              if (val < 0)
               rgba[i+c] = 0;
              else if (val > 255)
