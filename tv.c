@@ -1298,6 +1298,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     tfb->fb_bpp = vinfo.bits_per_pixel;
     if (tfb->fb_bpp == 16)
     {
+      tfb->do_dither = 1;
       tfb->fb_bpp = vinfo.red.length +
                vinfo.green.length +
                vinfo.blue.length;
@@ -1325,6 +1326,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
         i++;
       }
       ioctl (fb_fd, FBIOPUTCMAP, &cmap);
+      tfb->do_dither = 1;
     }
 
     tfb->fb_stride = finfo.line_length;
