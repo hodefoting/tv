@@ -4,7 +4,6 @@ typedef enum {TV_AUTO,
               TV_SIXEL,
               TV_SIXEL_HI,
               TV_UTF8,
-              TV_BW,
               TV_FB,
 } TvOutput;
 
