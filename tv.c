@@ -40,6 +40,9 @@ int            interactive = 1;
 int            thumbs = 0;
 float          DIVISOR=5.0;
 
+int            brightness = 0;
+
+
 Tfb tfb = {
 1,1,1,-1,0,0,1,0,0,TV_AUTO
 };
@@ -238,6 +241,19 @@ EvReaction cmd_down_small (void)
 EvReaction cmd_right_small (void)
 {
   x_offset = x_offset + (desired_height * JUMPSMALLLEN) * factor;
+  return REDRAW;
+}
+
+
+EvReaction cmd_brightness_up (void)
+{
+  brightness += 1;
+  return REDRAW;
+}
+
+EvReaction cmd_brightness_down (void)
+{
+  brightness -= 1;
   return REDRAW;
 }
 
@@ -597,6 +613,9 @@ Action actions[] = {
   {"j",        cmd_jump},
   {"x",        cmd_set_zoom},
   {"S",        cmd_set_delay},
+
+  {".",        cmd_brightness_up},
+  {",",        cmd_brightness_down},
   {NULL, NULL}
 };
 
@@ -982,13 +1001,30 @@ void redraw()
                   aspect,
                   rotate);
 
+     if (brightness != 0)
+     {
+       int i = 0;
+       for (int y = 0; y < outh; y++)
+         for (int x = 0; x < outw; x++)
+         {
+           /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
+           rgba[i+0] += brightness;
+           rgba[i+1] += brightness;
+           rgba[i+2] += brightness;
+
+           i+=4;
+         }
+
+     }
+
      if (tfb.bw && tfb.do_dither)
      {
        int i = 0;
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
-           int val = rgba[i+1] + mask_a(x, y, 0) * 127 - 64;
+           /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
+           int val = rgba[i+1] + mask_a(x/2, y/2, 0) * 100 - 50;
            if (val > 128)
            {
              rgba[i+0]=255;
@@ -1012,7 +1048,8 @@ void redraw()
          {
            for (int c = 0; c < 3; c++)
            {
-             int val = rgba[i+c] + mask_a(x, y, c) * 256/6 - 0.5;
+             /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
+             int val = rgba[i+c] + mask_a(x/2, y/2, c) * 256/6 - 0.5;
              val = val * 6 / 255;
              rgba[i+c]=val * 255 / 6;
            }
