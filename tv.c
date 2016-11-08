@@ -41,7 +41,7 @@ int            thumbs = 0;
 float          DIVISOR=5.0;
 
 Tfb tfb = {
-1,1,1,-1,0,1,1,0,0,TV_AUTO
+1,1,1,-1,0,0,1,0,0,TV_AUTO
 };
 
 float aspect = 1.0;
@@ -252,6 +252,12 @@ EvReaction cmd_left_small (void)
 EvReaction cmd_grayscale (void)
 {
   grayscale = !grayscale;
+  return REDRAW;
+}
+
+EvReaction cmd_bw (void)
+{
+  tfb.bw = !tfb.bw;
   return REDRAW;
 }
 
@@ -585,6 +591,7 @@ Action actions[] = {
   {"p",        cmd_pal_up},
   {"P",        cmd_pal_down},
   {"q",        cmd_quit},
+  {"b",        cmd_bw},
   {"r",        cmd_rotate},
   {"?",        cmd_help},
   {"j",        cmd_jump},
@@ -726,11 +733,12 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-bw"))
     {
-      tfb->bw = 1;
+      cmd_bw ();
     }
     else if (!strcmp (argv[x], "-term256"))
     {
       tfb->term256 = 1;
+      tfb->do_dither = 1;
     }
     else if (!strcmp (argv[x], "-v"))
     {
