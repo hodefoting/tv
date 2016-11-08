@@ -343,6 +343,14 @@ EvReaction cmd_set_zoom (void)
   return REDRAW;
 }
 
+void drop_image (void)
+{
+  if (image)
+    free (image);
+  image = NULL;
+}
+
+
 EvReaction cmd_jump (void)
 {
   int val;
@@ -351,6 +359,7 @@ EvReaction cmd_jump (void)
   image_no = val - 1;
   if (image_no >= images_c)
   image_no = images_c - 1;
+  drop_image ();
   return RELOAD;
 }
 
@@ -548,9 +557,7 @@ void reset_controls (void)
 
 EvReaction cmd_next (void)
 {
-  if (image)
-    free (image);
-  image = NULL;
+  drop_image ();
   image_no ++;
   if (image_no >= images_c)
   {
@@ -565,9 +572,7 @@ EvReaction cmd_next (void)
 
 EvReaction cmd_prev (void)
 {
-  if (image)
-    free (image);
-  image = NULL;
+  drop_image ();
   image_no --;
   if (image_no < 0)
     image_no = 0;
@@ -1059,12 +1064,23 @@ void redraw()
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
+           long graydiff = 
+             (rgba[i+0] - rgba[i+1]) * (rgba[i+0] - rgba[i+1]) +
+             (rgba[i+2] - rgba[i+1]) * (rgba[i+2] - rgba[i+1]) +
+             (rgba[i+2] - rgba[i+0]) * (rgba[i+2] - rgba[i+0]);
+
+           if (graydiff < 900) /* no dithering for things close than this to gray  */
+           {
+             rgba[i+0] = rgba[i+1];
+             rgba[i+2] = rgba[i+1];
+           }
+           else
            for (int c = 0; c < 3; c++)
            {
              /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
              int val = rgba[i+c] + mask_a(x/2, y/2, c) * 256/6 - 0.5;
              val = val * 6 / 255;
-             rgba[i+c]=val * 255 / 6;
+             rgba[i+c] = val * 255 / 6;
            }
            i+= 4;
          }
