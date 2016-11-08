@@ -617,11 +617,11 @@ EvReaction handle_input (void)
    {
      char buf[10];
      int length = 0;
-     if ((length=read (STDIN_FILENO, &buf[0], 8)) >= 0)
+     if ((length=read (STDIN_FILENO, &buf[0], 6)) >= 0)
      {
        buf[length]='\0';
        for (int i = 0; actions[i].input; i++)
-         if (!strcmp (actions[i].input, buf))
+         if (!strncmp (actions[i].input, buf, strlen(actions[i].input)))
            return actions[i].handler();
 
        if (verbosity > 1)
