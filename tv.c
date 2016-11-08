@@ -1058,6 +1058,12 @@ void redraw()
   if (thumbs)
   {
   int x = 10;
+#if 0
+  y_offset_thumb = 
+         image_no * 
+          (1.0 * outw/DIVISOR) / image_h * 4;
+#endif
+
   int y = 10 - y_offset_thumb;
 
   for (int i = 0; i < images_c && images[i] && y < outh; i ++)
@@ -1082,8 +1088,16 @@ void redraw()
         if(0)fill_rect(rgba + (outw * (y-2) + (x-2)) * 4,
                   outw/DIVISOR+4, h+4, outw * 4,
                   0,0,0);
+        if (y > outh/2)
+          y_offset_thumb += DIVISOR * 4;
+        //else if (y < 0)
+        //  y_offset_thumb -= 10;
+        int h2 = h+2;
+
+        if (y-1 + h2 >= outh)
+          h2=outh-y-1;
         fill_rect(rgba + (outw * (y-1) + (x-1)) * 4,
-                  outw/DIVISOR+2, h+2, outw * 4,
+                  outw/DIVISOR+2, h2, outw * 4,
                   255,0,0);
      }
      resample_image (image, image_w, image_h,
