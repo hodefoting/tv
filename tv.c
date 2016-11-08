@@ -1113,8 +1113,10 @@ void redraw()
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
-           /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
-           int val = rgba[i+1] + mask_a(x/2, y/2, 0) * 100 - 50;
+           int val = rgba[i+1];
+           
+           if (val > 16 && val < 255-16)
+             val += mask_a(x/2, y/2, 0) * 100 - 50;
            if (val > 128)
            {
              rgba[i+0]=255;
