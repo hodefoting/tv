@@ -1271,10 +1271,12 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       if (tfb->palcount == -1) /* only do the autobump on 16, means that it doesn't
                              work for 16 directly  */
         tfb->palcount = 255;
+        tfb->do_dither = 1;
       return TV_SIXEL_HI;
     }
     if (tfb->palcount == -1)
       tfb->palcount = 16;
+    tfb->do_dither = 1;
     return TV_SIXEL;
   }
 
