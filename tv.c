@@ -980,7 +980,7 @@ void redraw()
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
-           int val = rgba[i+1] + mask_a(x, y, 0) * 256 - 128;
+           int val = rgba[i+1] + mask_a(x, y, 0) * 127 - 64;
            if (val > 128)
            {
              rgba[i+0]=255;
