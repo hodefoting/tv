@@ -539,6 +539,13 @@ EvReaction cmd_quit (void)
   return REQUIT;
 }
 
+void reset_controls (void)
+{
+  brightness = 0;
+  time_remaining = delay;
+  factor = -1;
+}
+
 EvReaction cmd_next (void)
 {
   if (image)
@@ -552,8 +559,7 @@ EvReaction cmd_next (void)
     else
       image_no = images_c - 1;
   }
-  factor = -1;
-  time_remaining = delay;
+  reset_controls ();
   return RELOAD;
 }
 
@@ -565,8 +571,7 @@ EvReaction cmd_prev (void)
   image_no --;
   if (image_no < 0)
     image_no = 0;
-  factor = -1;
-  time_remaining = delay;
+  reset_controls ();
   return RELOAD;
 }
 
@@ -1008,10 +1013,18 @@ void redraw()
          for (int x = 0; x < outw; x++)
          {
            /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
-           rgba[i+0] += brightness;
-           rgba[i+1] += brightness;
-           rgba[i+2] += brightness;
-
+           int c;
+           int val;
+           for (c = 0; c < 3; c++)
+           {
+             val = rgba[i+c] + brightness;
+             if (val < 0)
+              rgba[i+c] = 0;
+             else if (val > 255)
+              rgba[i+c] = 255;
+             else
+              rgba[i+c] = val;
+           }
            i+=4;
          }
 
