@@ -651,6 +651,30 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               }
               }
 
+              // if bw - do a run of checking variance of all r,g,bs //
+              if (tfb->bw)
+              {
+                uint32_t col0 = *((uint32_t*)(&rgba[rgbo]));
+                uint32_t col ;
+                long maxdiff = 0;
+                for (int v = GLYPH_HEIGHT-1; v >=0; v --)
+                {
+                  int rgbo2 = rgbo + outw * 4 * v;
+                  for (int u = GLYPH_WIDTH-1; u >=0; u --)
+                  {
+                    col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
+                    long d1 = coldiff(col, col0);
+                    if (d1 > maxdiff)
+                      maxdiff = d1;
+                  }
+                }
+                if (maxdiff < 1400)
+                {
+                  best_glyph = -(col&0xff);//-((maxc>>8) & 0xff);
+                }
+              }
+
+              if (best_glyph >= 0)
               for (int i = 0; glyphs[i].utf8; i++)
               {
                 int matches = 0;
@@ -702,7 +726,8 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               }
 
               /* XXX: re-calibrate color to actual best colors for glyph*/
-              if(! tfb->bw ) {//&& ! tfb->do_dither){
+              if(! tfb->bw ) 
+              {
                 long red0 = 0, green0 = 0, blue0 = 0;
                 long red1 = 0, green1 = 0, blue1 = 0;
                 int bitno = 0;
@@ -763,6 +788,13 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 set_fg (tfb, (secondmaxc)&0xff,(secondmaxc >> 8)&0xff  , (secondmaxc >> 16) & 0xff);
               }
 
+              if (best_glyph < 0)
+              {
+                // XXX: use a_dither one these
+                char *grayscale[]={" ", "░", "▒", "▓", "█"  };
+                sixel_outf(grayscale[((-best_glyph)*4/255)]);
+              }
+              else
               sixel_outf(glyphs[best_glyph].utf8);
             }
           sixel_outf ("\n");

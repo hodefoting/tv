@@ -1120,7 +1120,6 @@ void redraw()
   }
   }
 
-
      if (tfb.bw && tfb.do_dither)
      {
        int i = 0;
@@ -1166,7 +1165,7 @@ void redraw()
            for (int c = 0; c < 3; c++)
            {
              /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
-             int val = rgba[i+c] + mask_a(x/2, y/2, c) * 256/6 - 0.5;
+             int val = rgba[i+c] + mask_a(x/1.5, y/1.5, c) * 256/6 - 0.5;
              val = val * 6 / 255.99;
 
              rgba[i+c] = val * 255.99 / 6;
