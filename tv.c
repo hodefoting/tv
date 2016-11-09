@@ -245,6 +245,12 @@ EvReaction cmd_right_small (void)
   return REDRAW;
 }
 
+EvReaction cmd_invert (void)
+{
+  contrast *= -1;
+  return REDRAW;
+}
+
 EvReaction cmd_contrast_up (void)
 {
   contrast *= 1.1;
@@ -642,6 +648,7 @@ Action actions[] = {
   {",",        cmd_brightness_down},
   {"<",        cmd_contrast_down},
   {">",        cmd_contrast_up},
+  {"i",        cmd_invert},
   {NULL, NULL}
 };
 
