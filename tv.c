@@ -1443,7 +1443,10 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     return TV_FB;
   }
 
-  if (tfb->tv_mode == TV_ASCII || tfb->tv_mode == TV_UTF8 || (*dw <=0 || *dh <=0))
+  if (tfb->tv_mode == TV_ASCII ||
+      tfb->tv_mode == TV_UTF8 ||
+      (tfb->tv_mode == TV_AUTO && !sixel_is_supported())||
+      (*dw <=0 || *dh <=0))
   {
     if (tfb->tv_mode == TV_UTF8 || tfb->tv_mode == TV_AUTO)
     {
