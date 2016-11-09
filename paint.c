@@ -289,14 +289,12 @@ void blit_sixel_pal (unsigned int        *pal,
   int red, green, blue;
   int red_max, green_max, blue_max;
   int red_levels   = 2;
-  int green_levels = 4;
+  int green_levels = 16;
   int blue_levels  = 2;
-
   palcount_to_levels (palcount, &red_levels, &green_levels, &blue_levels, &grayscale);
   red_max = red_levels;
   green_max = green_levels;
   blue_max = blue_levels;
-
   if (grayscale)
     {
       red_max = 1;
@@ -880,7 +878,7 @@ static void term_get_xy (int* x, int *y)
     printf ("[6n");
     fflush(stdout);
 
-    if (stdin_got_data (100000))
+    if (stdin_got_data (1000000))
       if (scanf("\033[%d;%dR", y, x) != 2)
       {
         *x = 1;
@@ -899,19 +897,19 @@ int sixel_is_supported (void)
   int xb, yb;
   if (inited == -22)
   {
+   fflush(NULL);
    term_get_xy (&ox, &oy);
    printf ("[1;1H");
    printf ("\r");
    fflush(NULL);
    term_get_xy (&x, &y);
    sixel_start ();
-   sixel_outf ("#1---ab7878-----A-");
+   sixel_outf ("#1---ab7878------a7878---A-");
    sixel_end ();
    printf ("\r");
    fflush(NULL);
    term_get_xy (&xb, &yb);
    printf ( "[%d;%dH", oy, ox);
-   fflush(NULL);
    inited = (y != yb);
   }
   return inited;

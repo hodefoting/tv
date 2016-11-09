@@ -23,7 +23,6 @@ float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
 float          y_offset_thumb = 0.0;
-int            grayscale      = 0;
 int            slideshow      = 0;
 float          delay          = 4.0;
 float          time_remaining = 0.0;
@@ -285,7 +284,7 @@ EvReaction cmd_left_small (void)
 
 EvReaction cmd_grayscale (void)
 {
-  grayscale = !grayscale;
+  tfb.grayscale = !tfb.grayscale;
   return REDRAW;
 }
 
@@ -714,8 +713,9 @@ void print_status (void)
     printf ( "[%d;%dH[2K", status_y, status_x);\
   }\
 
+    CLEAR
 #if 0
-  printf ("v:%d ", verbosity);
+  printf ("v:%d:%d ", tfb.tv_mode, sixel_is_supported());
 #endif
 
   if (message)
@@ -763,7 +763,7 @@ void print_status (void)
 
     if (verbosity > 1)
     {
-      if (grayscale)
+      if (tfb.grayscale)
         printf (" -g");
       if (!tfb.do_dither)
         printf (" -nd");
@@ -797,7 +797,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-g"))
     {
-      grayscale = 1;
+      tfb->grayscale = 1;
     }
     else if (!strcmp (argv[x], "-o"))
     {
@@ -1053,6 +1053,24 @@ void redraw()
              else
               rgba[i+c] = val;
            }
+           i+=4;
+         }
+
+     }
+
+     if (tfb.grayscale)
+     {
+       int i = 0;
+       for (int y = 0; y < outh; y++)
+         for (int x = 0; x < outw; x++)
+         {
+           int c;
+           int val = (rgba[i+0] +
+                     rgba[i+1] +
+                     rgba[i+2]) / 3;
+
+           for (c = 0; c < 3; c++)
+             rgba[i+c] = val;
            i+=4;
          }
 
