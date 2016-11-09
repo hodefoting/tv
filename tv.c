@@ -31,18 +31,17 @@ int            verbosity      = 1;
 int            desired_width  = 1024;
 int            desired_height = 1024;
 int            image_no;
-unsigned char *image       = NULL;
+unsigned char *image          = NULL;
 int            image_w, image_h;
-const char    *path        = NULL;
-int            pdf         = 0;
-int            zero_origin = 0;
-int            interactive = 1;
-int            thumbs = 0;
-float          DIVISOR=5.0;
+const char    *path           = NULL;
+int            pdf            = 0;
+int            zero_origin    = 0;
+int            interactive    = 1;
+int            thumbs         = 0;
+float          DIVISOR        = 5.0;
 
-int            brightness = 0;
-float          contrast   = 1.0;
-
+int            brightness     = 0;
+float          contrast       = 1.0;
 
 Tfb tfb = {
 1,1,1,-1,0,0,1,0,0,TV_AUTO
@@ -52,8 +51,8 @@ float aspect = 1.0;
 int rotate = 0;
 
 #define SKIP_FULL_BLANK_ROWS 1
-#define JUMPLEN 0.50
-#define JUMPSMALLLEN 0.05
+#define JUMPLEN              0.50
+#define JUMPSMALLLEN         0.05
 
 char *images[40960]={0,};
 const char *pdf_path = NULL;
