@@ -670,7 +670,11 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 }
                 if (maxdiff < 1400)
                 {
-                  best_glyph = -(col&0xff);//-((maxc>>8) & 0xff);
+                  int value = (col&0xff);//-((maxc>>8) & 0xff);
+                  value += mask_a (x / GLYPH_WIDTH, y / GLYPH_HEIGHT, 0) - 0.5 * 256/5;
+                  if (value < 0) value = 0;
+                  if (value > 255) value = 255;
+                  best_glyph = -value;
                 }
               }
 
@@ -791,8 +795,8 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
               if (best_glyph < 0)
               {
                 // XXX: use a_dither one these
-                char *grayscale[]={" ", "░", "▒", "▓", "█"  };
-                sixel_outf(grayscale[((-best_glyph)*4/255)]);
+                char *grayscale[]={" ", "░", "▒", "▓", "█", "?"  };
+                sixel_outf(grayscale[(int)((-best_glyph)*5/255)]);
               }
               else
               sixel_outf(glyphs[best_glyph].utf8);
