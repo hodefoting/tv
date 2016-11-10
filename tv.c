@@ -83,19 +83,25 @@ int ocmap_used = 0;
 
 void usage ()
 {
-  printf ("usage: tv [--help] [-w <width>] [-h <height>] [-o] [-v] [-g] [-p <palcount>] [-nd] <image1|pdf> [image2 [image3 [image4 ...]]]\n");
+  printf ("usage: tv [--help] [-w <width>] [-h <height>] -m <mode> [images]\n");
   printf ("options:\n");
   printf ("  --help  print this help\n");
-  printf ("  -w <int>width in pixels (default terminal width)\n");
-  printf ("  -h <int>height in pixels (default terminal iheight)\n");
-  printf ("  -o      reset cursor to 0,0 after each drawing\n");
-  printf ("  -m <ascii|utf8|fb|sixel>\n");
-  printf ("  -v      be verbose\n");
+
+  printf ("  -w <int>width \n");
+  printf ("  -h <int>height \n");
+  printf ("       the dimension is in pixels for sixel modes and in character\n");
+  printf ("       cells for character based modes\n");
+  //printf ("  -o      reset cursor to 0,0 after each drawing\n");
+  printf ("  -m <mode>  specify no or invalid mode to get a list of valid modes\n");
+  //printf ("  -v      be verbose\n");
   //printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
-  printf ("  -s      slideshow mode\n");
+  printf ("  -s slideshow mode\n");
+/*
+
   printf ("  -g      do a grayscale instead of color\n");
   printf ("  -nd     no dithering\n");
   printf ("  -p <count>  use count number of colors\n");
+  */
   exit (0);
 }
 
@@ -843,24 +849,99 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     else if (!strcmp (argv[x], "-m"))
     {
       if (!argv[x+1])
-        exit (-1);
+        goto list_modes;
+
+#if 0
+     utf8-16-dither
+     utf8-256-dither  (utf8) - high compatibility
+     utf8-256
+     utf8-24bit
+     sixel-16
+     sixel-16-gray
+     sixel-256
+     fb8
+     fb15
+     fb16
+     fb24
+#endif
 
       if (!strcmp (argv[x+1], "ascii"))
+      {
         tfb->tv_mode = TV_ASCII;
+      }
       else if (!strcmp (argv[x+1], "utf8"))
+      {
         tfb->tv_mode = TV_UTF8;
-      else if (!strcmp (argv[x+1], "sixel-hi"))
+      }
+      else if (!strcmp (argv[x+1], "utf8-2"))
+      {
+        tfb->tv_mode = TV_UTF8;
+        tfb->bw = 1;
+      }
+      else if (!strcmp (argv[x+1], "utf8-2-gray"))
+      {
+        tfb->tv_mode = TV_UTF8;
+        tfb->bw = 1;
+        tfb->do_dither = 0;
+      }
+      else if (!strcmp (argv[x+1], "utf8-256"))
+      {
+        tfb->tv_mode = TV_UTF8;
+        tfb->term256 = 1;
+      }
+      else if (!strcmp (argv[x+1], "utf8-256-gray"))
+      {
+        tfb->tv_mode = TV_UTF8;
+        tfb->term256 = 1;
+        tfb->grayscale = 1;
+      }
+      else if (!strcmp (argv[x+1], "utf8-24"))
+      {
+        tfb->tv_mode = TV_UTF8;
+      }
+      else if (!strcmp (argv[x+1], "sixel-256"))
       {
         tfb->tv_mode = TV_SIXEL_HI;
         tfb->palcount = 255;
       }
-      else if (!strcmp (argv[x+1], "sixel"))
+      else if (!strcmp (argv[x+1], "sixel-16"))
+      {
         tfb->tv_mode = TV_SIXEL;
+        tfb->palcount = 16;
+      }
+      else if (!strcmp (argv[x+1], "sixel-16-gray"))
+      {
+        tfb->tv_mode = TV_SIXEL;
+        tfb->palcount = 16;
+        tfb->grayscale = 1;
+        tfb->do_dither = 1;
+      }
+      else if (!strcmp (argv[x+1], "list"))
+      {
+        goto list_modes;
+      }
+      else if (!strcmp (argv[x+1], "sixel"))
+      {
+        tfb->tv_mode = TV_SIXEL;
+      }
       else if (!strcmp (argv[x+1], "fb"))
         tfb->tv_mode = TV_FB;
       else
       {
-        fprintf (stderr, "invalid argument for -m, '%s' only know of ascii, utf8, sixel and fb\n", argv[x+1]);
+        list_modes:
+        fprintf (stderr, "invalid argument for -m, '%s'\n"
+"try one of: \n"
+"  ascii\n"
+"  utf8\n"
+"  utf8-2\n"
+"  utf8-2-gray\n"
+"  utf8-256\n"
+"  utf8-256-gray\n"
+"  sixel\n"
+"  sixel-16\n"
+"  sixel-16-gray\n"
+"  sixel-256\n"
+"  fb\n",  argv[x+1]);
         exit(-2);
       }
       x++;
@@ -1247,14 +1328,11 @@ main (int argc, char **argv)
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
    */
+  desired_width = 80;
+  desired_height = 25;
+  parse_args (&tfb, argc, argv);
   if (isatty (STDOUT_FILENO))
     init (&tfb, &desired_width, &desired_height);
-  else
-  {
-    desired_width = 80;
-    desired_height = 25;
-  }
-  parse_args (&tfb, argc, argv);
 
 
   time_remaining = delay;   /* do this initialization after
