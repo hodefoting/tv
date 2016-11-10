@@ -682,6 +682,10 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 int matches = 0;
                 int rmatches = 0;
                 int bitno = 0;
+
+                if (tfb->bw && !(glyphs[i].flags & GLYPH_MONOSPACED))
+                        continue;
+
                 for (int v = GLYPH_HEIGHT-1; v >=0; v --)
                 {
                   int rgbo2 = rgbo + outw * 4 * v;

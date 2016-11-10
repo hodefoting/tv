@@ -360,11 +360,14 @@ EvReaction cmd_set_zoom (void)
   return REDRAW;
 }
 
+void reset_controls (void);
+
 void drop_image (void)
 {
   if (image)
     free (image);
   image = NULL;
+  reset_controls ();
 }
 
 
@@ -1232,11 +1235,20 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
 int
 main (int argc, char **argv)
 {
+
   /* we initialize the terminals dimensions as defaults, before the commandline
      gets to override these dimensions further 
    */
-  init (&tfb, &desired_width, &desired_height);
+  if (isatty (STDOUT_FILENO))
+    init (&tfb, &desired_width, &desired_height);
+  else
+  {
+    desired_width = 80;
+    desired_height = 25;
+  }
   parse_args (&tfb, argc, argv);
+
+
   time_remaining = delay;   /* do this initialization after
                                argument parsing has settled down */
   images[images_c] = NULL;
@@ -1311,6 +1323,8 @@ main (int argc, char **argv)
         cmd_next ();
         goto interactive_load_image;
       }
+  
+      if (isatty (STDOUT_FILENO))
       tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
 
       if (factor < 0)
@@ -1358,6 +1372,7 @@ main (int argc, char **argv)
       {
         usleep (delay * 1000.0 * 1000.0);
         printf ("\n");
+        drop_image ();
       }
     }
   }

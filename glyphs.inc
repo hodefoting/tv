@@ -3,10 +3,15 @@
 #define GLYPH_HEIGHT  4
 #define GLYPH_ASPECT 1.8
 
+#define GLYPH_DEFAULTS   1
+#define GLYPH_MONOSPACED 1
+
+
 typedef struct UnicodeGlyph
 {
   const char *utf8;
   uint32_t    bitmap;
+  int         flags;
 } UnicodeGlyph;
 
 static UnicodeGlyph glyphs[]={{
@@ -15,98 +20,104 @@ static UnicodeGlyph glyphs[]={{
 0000\
 0000\
 0000\
-0000},{
+0000, 0},{
+
+" ", 0b\
+0000\
+0000\
+0000\
+0000, GLYPH_MONOSPACED},{
 
 
 "▘", 0b\
 1100\
 1100\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "▝", 0b\
 0011\
 0011\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "▀", 0b\
 1111\
 1111\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
         
 "▖", 0b\
 0000\
 0000\
 1100\
-1100},{
+1100, GLYPH_MONOSPACED},{
 
 "▌", 0b\
 1100\
 1100\
 1100\
-1100},{
+1100, GLYPH_MONOSPACED},{
         
 "▞", 0b\
 0011\
 0011\
 1100\
-1100},{
+1100, GLYPH_MONOSPACED},{
         
 "▛", 0b\
 1111\
 1111\
 1100\
-1100  },{
+1100  , GLYPH_MONOSPACED},{
         
 "▗", 0b\
 0000\
 0000\
 0011\
-0011},{
+0011, GLYPH_MONOSPACED},{
         
 "▚", 0b\
 1100\
 1100\
 0011\
-0011},{
+0011, GLYPH_MONOSPACED},{
         
 "▐", 0b\
 0011\
 0011\
 0011\
-0011},{
+0011, GLYPH_MONOSPACED},{
         
 "▜", 0b\
 1111\
 1111\
 0011\
-0011},{
+0011, GLYPH_MONOSPACED},{
         
 "▄", 0b\
 0000\
 0000\
 1111\
-1111},{
+1111, GLYPH_MONOSPACED},{
         
 "▙", 0b\
 1100\
 1100\
 1111\
-1111},{
+1111, GLYPH_MONOSPACED},{
         
 "▟", 0b\
 0011\
 0011\
 1111\
-1111},{
+1111, GLYPH_MONOSPACED},{
         
 "█", 0b\
 1111\
 1111\
 1111\
-1111},{
+1111, GLYPH_MONOSPACED},{
 
 "⬩", 0b\
 0000\
@@ -124,43 +135,43 @@ static UnicodeGlyph glyphs[]={{
 1000\
 1000\
 1000\
-1000},{
+1000, GLYPH_MONOSPACED},{
 
 "│", 0b\
 0010\
 0010\
 0010\
-0010},{
+0010, GLYPH_MONOSPACED},{
 
 "┃", 0b\
 0110\
 0110\
 0110\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 "╴",0b\
 0000\
 1100\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "╶",0b\
 0000\
 0011\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
         
 "╵",0b\
 0010\
 0010\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
         
 "╷",0b\
 0000\
 0000\
 0010\
-0010},{
+0010, GLYPH_MONOSPACED},{
 
 "▪", 0b\
 0000\
@@ -172,93 +183,93 @@ static UnicodeGlyph glyphs[]={{
 0000\
 1110\
 1110\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 "┏", 0b\
 0000\
 0111\
 0111\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 "┗", 0b\
 0110\
 0111\
 0111\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "┛", 0b\
 0110\
 1110\
 1110\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 
 "╹", 0b\
 0110\
 0110\
 0000\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "╻", 0b\
 0000\
 0000\
 0110\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 "╸", 0b\
 0000\
 1100\
 1100\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "╺", 0b\
 0000\
 0011\
 0011\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "▕", 0b\
 0001\
 0001\
 0001\
-0001},{
+0001, GLYPH_MONOSPACED},{
 
 "▂", 0b\
 0000\
 0000\
 0000\
-1111},{
+1111, GLYPH_MONOSPACED},{
 
 "▆", 0b\
 0000\
 1111\
 1111\
-1111},{
+1111, GLYPH_MONOSPACED},{
 
 
 "▊", 0b\
 1110\
 1110\
 1110\
-1110},{
+1110, GLYPH_MONOSPACED},{
 
 "┃", 0b\
 0110\
 0110\
 0110\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 "━", 0b\
 0000\
 1111\
 1111\
-0000},{
+0000, GLYPH_MONOSPACED},{
 
 "╋", 0b\
 0110\
 1111\
 1111\
-0110},{
+0110, GLYPH_MONOSPACED},{
 
 
 "+", 0b\
