@@ -37,6 +37,10 @@ int            pdf            = 0;
 int            zero_origin    = 0;
 int            interactive    = 1;
 int            thumbs         = 0;
+
+int            set_w = 0;
+int            set_h = 0;
+
 float          DIVISOR        = 5.0;
 
 int            brightness     = 0;
@@ -810,6 +814,10 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       tfb->do_dither = 0;
     }
+    else if (!strcmp (argv[x], "-d"))
+    {
+      tfb->do_dither = 1;
+    }
     else if (!strcmp (argv[x], "-t"))
     {
       cmd_thumbs ();
@@ -870,7 +878,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       if (!argv[x+1])
         exit (-2);
-      desired_width = atoi (argv[x+1]);
+      set_w = atoi (argv[x+1]);
       x++;
     }
     else if (!strcmp (argv[x], "-d"))
@@ -888,7 +896,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       if (!argv[x+1])
         exit (-2);
-      desired_height = atoi (argv[x+1]);
+      set_h = atoi (argv[x+1]);
       x++;
     }
     else
@@ -1390,6 +1398,14 @@ main (int argc, char **argv)
 TvOutput init (Tfb *tfb, int *dw, int *dh)
 {
   struct winsize size = {0,0,0,0};
+
+  if (set_w || set_h)
+  {
+    *dw = set_w;
+    *dh = set_h;
+  }
+  else
+  {
   int result = ioctl (0, TIOCGWINSZ, &size);
   if (result) {
     *dw = 400; /* default dims - works for xterm which is small*/
@@ -1401,7 +1417,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
     status_y = size.ws_row;
   }
-
+  }
 
   if (sixel_is_supported () && tfb->tv_mode == TV_AUTO)
   {
@@ -1430,9 +1446,11 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
     ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
 
-
-    *dw = vinfo.xres;
-    *dh = vinfo.yres;
+    if (!(set_w || set_h))
+    {
+      *dw = vinfo.xres;
+      *dh = vinfo.yres;
+    }
 
     tfb->fb_bpp = vinfo.bits_per_pixel;
     if (tfb->fb_bpp == 16)
@@ -1483,8 +1501,16 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
   {
     if (tfb->tv_mode == TV_UTF8 || tfb->tv_mode == TV_AUTO)
     {
-      *dw = size.ws_col * GLYPH_WIDTH;
-      *dh = size.ws_row * GLYPH_HEIGHT;
+      if (set_w || set_h)
+      {
+        *dw *= GLYPH_WIDTH;
+        *dh *= GLYPH_HEIGHT;
+      }
+      else
+      {
+        *dw = size.ws_col * GLYPH_WIDTH;
+        *dh = size.ws_row * GLYPH_HEIGHT;
+      }
     }
     else
     {
