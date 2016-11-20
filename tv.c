@@ -1042,6 +1042,45 @@ int is_file (const char *path)
   return 0;
 }
 
+
+static void
+mk_ancestry_iter (const char *path)
+{
+  char copy[4096];
+  strncpy (copy, path, 4096);
+  if (strrchr (copy, '/'))
+  { 
+    *strrchr (copy, '/') = '\0';
+    if (copy[0])
+    {
+      struct stat stat_buf;
+      if ( ! (stat (copy, &stat_buf)==0 && S_ISDIR(stat_buf.st_mode)))
+      {
+        mk_ancestry_iter (copy);
+#ifndef _WIN32 
+        mkdir (copy, S_IRWXU);
+#else
+        mkdir (copy);
+#endif
+      }
+    }
+  }
+}
+
+static void
+mk_ancestry (const char *path)
+{
+  char copy[4096];
+  strncpy (copy, path, 4096);
+#ifdef _WIN32
+  for (char *c = copy; *c; c++)
+    if (*c == '\\')
+      *c = '/';
+#endif
+  mk_ancestry_iter (copy);
+}
+
+
 void
 make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
 {
@@ -1052,11 +1091,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   if (is_file (resolved))
     return;
 
-  while (strrchr (resolved, '/'))
-  {
-    *strrchr (resolved, '/') = '\0';
-    mkdir (resolved, S_IRWXU);
-  }
+  mk_ancestry (resolved);
 
   uint8_t *trgba = malloc (dim * dim * 4);
   float f = dim / (w * 1.0);
