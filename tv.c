@@ -95,7 +95,7 @@ void usage ()
   printf ("  -m <mode>  specify no or invalid mode to get a list of valid modes\n");
   //printf ("  -v      be verbose\n");
   //printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
-  printf ("  -s slideshow mode\n");
+  printf ("  -d <delay>  set slideshow mode\n");
 /*
 
   printf ("  -g      do a grayscale instead of color\n");
@@ -820,7 +820,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       tfb->do_dither = 0;
     }
-    else if (!strcmp (argv[x], "-d"))
+    else if (!strcmp (argv[x], "-dd"))
     {
       tfb->do_dither = 1;
     }
@@ -828,8 +828,15 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       cmd_thumbs ();
     }
-    else if (!strcmp (argv[x], "-s"))
+    else if (!strcmp (argv[x], "-d"))
     {
+      if (!argv[x+1])
+      {
+        fprintf (stderr, "-d expected argument, quitting\n");
+        exit (-1);
+      }
+      delay = strtod (argv[x+1], NULL);
+      x++;
       cmd_slideshow ();
     }
     else if (!strcmp (argv[x], "-x"))
@@ -868,6 +875,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
       if (!strcmp (argv[x+1], "ascii"))
       {
         tfb->tv_mode = TV_ASCII;
+        tfb->do_dither = 1;
       }
       else if (!strcmp (argv[x+1], "utf8"))
       {
