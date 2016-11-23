@@ -33,9 +33,9 @@ int            image_no;
 unsigned char *image          = NULL;
 int            image_w, image_h;
 const char    *path           = NULL;
+const char    *output_path    = NULL;
 int            pdf            = 0;
 int            zero_origin    = 0;
-int            interactive    = 1;
 int            thumbs         = 0;
 
 int            set_w = 0;
@@ -83,15 +83,22 @@ int ocmap_used = 0;
 
 void usage ()
 {
-  printf ("usage: tv [--help] [-w <width>] [-h <height>] -m <mode> [images]\n");
+  printf ("usage: tv [--help] [-s <widthxheight> -m <mode> [images] -o outputfile\n");
   printf ("options:\n");
   printf ("  --help  print this help\n");
 
-  printf ("  -w <int>width \n");
-  printf ("  -h <int>height \n");
-  printf ("       the dimension is in pixels for sixel modes and in character\n");
-  printf ("       cells for character based modes\n");
+  printf ("  -s <widthxheight>\n");
+  printf ("     the dimension is in pixels for sixel modes, and thumbnails creation\n");
+  printf ("     and in character cells for ascii/utf8 modes\n");
   //printf ("  -o      reset cursor to 0,0 after each drawing\n");
+#if 0
+  F - fit
+  f - fill
+  w - width (and at top)
+  XXX: todo if width or height is specified as -1 - do proportional scaling
+#endif
+
+
   printf ("  -m <mode>  specify no or invalid mode to get a list of valid modes\n");
   //printf ("  -v      be verbose\n");
   //printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
@@ -721,7 +728,7 @@ void print_status (void)
 {
   int cleared = 0;
 
-#define CLEAR if (cleared == 0) {\
+#define CLEAR if ((cleared == 0) && tfb.interactive) {\
     cleared = 1;\
     printf ( "[%d;%dH[2K", status_y, status_x);\
   }\
@@ -812,10 +819,6 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       tfb->grayscale = 1;
     }
-    else if (!strcmp (argv[x], "-o"))
-    {
-      zero_origin  = 1;
-    }
     else if (!strcmp (argv[x], "-nd"))
     {
       tfb->do_dither = 0;
@@ -832,7 +835,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       if (!argv[x+1])
       {
-        fprintf (stderr, "-d expected argument, quitting\n");
+        fprintf (stderr, "-d expected argument, aborting\n");
         exit (-1);
       }
       delay = strtod (argv[x+1], NULL);
@@ -857,20 +860,6 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       if (!argv[x+1])
         goto list_modes;
-
-#if 0
-     utf8-16-dither
-     utf8-256-dither  (utf8) - high compatibility
-     utf8-256
-     utf8-24bit
-     sixel-16
-     sixel-16-gray
-     sixel-256
-     fb8
-     fb15
-     fb16
-     fb24
-#endif
 
       if (!strcmp (argv[x+1], "ascii"))
       {
@@ -979,7 +968,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-i"))
     {
-      interactive = 0;
+      tfb->interactive = 0;
     }
     else if (!strcmp (argv[x], "-h"))
     {
@@ -987,6 +976,46 @@ void parse_args (Tfb *tfb, int argc, char **argv)
         exit (-2);
       set_h = atoi (argv[x+1]);
       x++;
+    }
+    else if (!strcmp (argv[x], "-o"))
+    {
+      char *str = argv[++x];
+      if (!str)
+      {
+        fprintf (stderr, "-o needs a path to place output in\n");
+        exit (-2);
+      }
+      output_path = str;
+      aspect = 1;
+      tfb->tv_mode = TV_SIXEL;
+      tfb->palcount = 16;
+
+      if (set_w == 0)
+      {
+        set_w = 256;
+        set_h = 256;
+      }
+    }
+
+    else if (!strcmp (argv[x], "-s"))
+    {
+      char *str = argv[++x];
+      if (!str)
+      {
+        fprintf (stderr, "-s expected argument, aborting\n");
+        exit (-2);
+      }
+
+      if (!strchr (str, 'x'))
+      {
+        fprintf (stderr, "-s expected argument with an 'x' as in 160x120\n");
+        exit (-2);
+      }
+
+      set_w = atoi (str);
+      set_h = atoi (strchr (str, 'x') + 1);
+
+      //fprintf (stderr, "set %i x %i\n", set_w, set_h);
     }
     else
     {
@@ -999,6 +1028,11 @@ image_load (const char *path,
             int        *width,
             int        *height,
             int        *stride);
+
+int write_jpg
+           (char const *filename,
+            int w, int h, int comp, const void *data,
+            int stride_in_bytes);
 
 void resample_image (const unsigned char *image,
                      int                  image_w,
@@ -1119,6 +1153,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
 
   if (!realpath (path, resolved))
     strcpy (resolved, path);
+
   stbi_write_png (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
   free (trgba);
 }
@@ -1213,6 +1248,14 @@ void redraw()
 
   }
 
+  if (output_path)
+  {
+    if (strstr (output_path, ".png"))
+      stbi_write_png (output_path, outw, outh, 4, rgba, outw * 4);
+    else
+      write_jpg (output_path, outw, outh, 4, rgba, outw * 4);
+    exit(0);
+  }
 
   if (thumbs)
   {
@@ -1333,7 +1376,7 @@ void redraw()
          }
      }
 
-  if (clear)
+  if (clear && tfb.interactive)
   {
     fprintf (stderr, "c");
     clear = 0;
@@ -1361,6 +1404,18 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
     images[images_c]=0;
   }
   spider_count ++;
+#if 0
+  if ( (spider_count % 50) == 0)
+  {
+    switch ( (spider_count / 50) % 4  )
+    {
+      case 0: fprintf (stdout, "\r-"); break;
+      case 1: fprintf (stdout, "\r/"); break;
+      case 2: fprintf (stdout, "\r|"); break;
+      case 3: fprintf (stdout, "\r\\"); break;
+    }
+  }
+#endif
   return 0;
 }
 
@@ -1374,9 +1429,24 @@ main (int argc, char **argv)
   desired_width = 80;
   desired_height = 25;
   parse_args (&tfb, argc, argv);
-  if (isatty (STDOUT_FILENO))
+
+ if (output_path)
+   {
+      tfb.interactive = 0;
+   }
+
+  if (isatty (STDOUT_FILENO) && tfb.interactive)
     init (&tfb, &desired_width, &desired_height);
 
+ if (output_path)
+   {
+      if (set_w)
+      {
+        desired_width = set_w;
+        desired_height = set_h;
+        aspect = 1.0;
+      }
+   }
 
   time_remaining = delay;   /* do this initialization after
                                argument parsing has settled down */
@@ -1404,7 +1474,7 @@ main (int argc, char **argv)
       command[4095]=0;
       pdf_path = images[0];
       pdf = 1;
-      interactive = 1;
+      tfb.interactive = 1;
       snprintf (command, 4095, "gs -q -c '(%s) (r) file runpdfbegin pdfpagecount = quit' -dNODISPLAY 2>&1", pdf_path);
 
       fp = popen(command, "r");
@@ -1421,7 +1491,8 @@ main (int argc, char **argv)
       pclose (fp);
     }
 
-  if (interactive)
+
+  if (tfb.interactive)
   {
     zero_origin = 1;
     _nc_raw();
@@ -1467,9 +1538,10 @@ main (int argc, char **argv)
       }
     }
 
+
     redraw ();
 
-    if (interactive)
+    if (tfb.interactive)
     {
       ev_again:
       print_status ();

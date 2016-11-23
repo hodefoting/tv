@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-//#define HAVE_JPEG
+#define HAVE_JPEG
 #define HAVE_PNG
 
 #ifdef HAVE_JPEG
@@ -272,4 +272,10 @@ void resample_image (const unsigned char *image,
       i+= 4;
     }
   }
+}
+
+int write_jpg (char const *filename,
+               int w, int h, int comp, const void *data,
+               int stride_in_bytes)
+{
 }
