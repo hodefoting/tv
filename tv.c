@@ -554,6 +554,8 @@ EvReaction cmd_zoom_fill (void)
   if (factor > 1.0 * image_h / desired_height)
     factor = 1.0 * image_h / desired_height;
 
+  factor /= 1.000001; /* fudging - otherwise width ends up wrong */
+
   return cmd_center ();
 }
 

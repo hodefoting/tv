@@ -198,23 +198,27 @@ void resample_image (const unsigned char *image,
       int offset;
       switch (rotate)
       {
-        case 90:
-          offset = (int)((image_h-q0) * image_w + z0)*4;
-          if (q1 < image_h &&
-              z1 < image_w && q0 >= 0 && z0 >= 0)
-            got_coverage = image[offset+3]>127;
-            break;
         default:
         case 0:
           offset = (int)((z0) * image_w + q0)*4;
   
-          if (z1 < image_h &&
-              q1 < image_w && z0 >= 0 && q0 >= 0)
+          if (z0 < image_h &&
+              q0 < image_w &&
+              z0 >= 0 &&
+              q0 >= 0)
               got_coverage = image[offset+3]>127;
+            break;
+        case 90:
+          offset = (int)((image_h-q0) * image_w + z0)*4;
+          if (q0 < image_h &&
+              z0 < image_w &&
+              q0 >= 0 &&
+              z0 >= 0)
+            got_coverage = image[offset+3]>127;
             break;
       }
 
-          int c = 0;
+      int c = 0;
       if (got_coverage)
         {
           int z, q;
@@ -226,6 +230,7 @@ void resample_image (const unsigned char *image,
           switch (rotate)
           {
             case 90:
+#if 0
               for (q = q0; q<q1; q++)
                 for (z = z0; z<z1; z++)
                 {
@@ -236,6 +241,7 @@ void resample_image (const unsigned char *image,
                   accumulated[3] += image[offset2 + 3];
                   c++;
                 }
+#endif
               break;
             case 0:
             default:
@@ -261,6 +267,24 @@ void resample_image (const unsigned char *image,
           rgba[i + 1] = accumulated[1];
           rgba[i + 2] = accumulated[2];
           rgba[i + 3] = accumulated[3];
+          break;
+        case 4:
+          rgba[i + 0] = accumulated[0]/4;
+          rgba[i + 1] = accumulated[1]/4;
+          rgba[i + 2] = accumulated[2]/4;
+          rgba[i + 3] = accumulated[3]/4;
+          break;
+        case 8:
+          rgba[i + 0] = accumulated[0]/8;
+          rgba[i + 1] = accumulated[1]/8;
+          rgba[i + 2] = accumulated[2]/8;
+          rgba[i + 3] = accumulated[3]/8;
+          break;
+        case 16:
+          rgba[i + 0] = accumulated[0]/16;
+          rgba[i + 1] = accumulated[1]/16;
+          rgba[i + 2] = accumulated[2]/16;
+          rgba[i + 3] = accumulated[3]/16;
           break;
         default:
           rgba[i + 0] = accumulated[0]/c;
