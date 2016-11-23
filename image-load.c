@@ -278,4 +278,36 @@ int write_jpg (char const *filename,
                int w, int h, int comp, const void *data,
                int stride_in_bytes)
 {
+  const uint8_t *cdata = data;
+  FILE *file = fopen (filename, "wb");
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr       jerr;
+
+  if (!file)
+  {
+    return -1;
+  }
+  cinfo.err = jpeg_std_error (&jerr);
+  jpeg_create_compress (&cinfo);
+  jpeg_stdio_dest (&cinfo, file);
+  cinfo.image_width = w;
+  cinfo.image_height = h;
+  cinfo.input_components = 4;
+  cinfo.in_color_space = JCS_EXT_RGBX;
+
+  jpeg_set_defaults (&cinfo);
+  jpeg_set_quality (&cinfo, 75, TRUE);
+  jpeg_start_compress (&cinfo, TRUE);
+
+  while (cinfo.next_scanline < cinfo.image_height)
+  {
+    JSAMPROW rp = (JSAMPROW) cdata + cinfo.next_scanline * stride_in_bytes;
+    jpeg_write_scanlines (&cinfo, &rp, 1);
+  }
+  jpeg_finish_compress (&cinfo);
+
+  fclose (file);
+
+  jpeg_destroy_compress (&cinfo);
+  return 0;
 }
