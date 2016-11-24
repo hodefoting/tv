@@ -271,7 +271,6 @@ void resample_image (const unsigned char *image,
       int q0 = (x+0) * factor + x_offset;
       int q1 = (x+1) * factor + x_offset;
       int accumulated[4] = {0,0,0,0};
-      int got_coverage = 0;
       int z0 = (y + v + 0) * factor * aspect + y_offset;
       int z1 = (y + v + 1) * factor * aspect + y_offset;
       int offset = (int)((z0) * image_w + q0)*4;
@@ -279,57 +278,56 @@ void resample_image (const unsigned char *image,
       if (z0 < image_h &&
           q0 < image_w &&
           z0 >= 0 &&
-          q0 >= 0)
-        got_coverage = image[offset+3]>127;
+          q0 >= 0 &&
+          image[offset+3]>127)
+      {
+        int count = 0;
+        int z, q;
+        int offset2;
 
-      int count = 0;
-      if (got_coverage)
+        if (q1 == q0) q1 = q0+1;
+        if (z1 == z0) z1 = z0+1;
+        if (q1 >= image_w) q1--;
+        if (z1 >= image_h) z1--;
+
+        if (linear)
         {
-          int z, q;
-          int offset2;
+          for (q = q0; q<q1; q++)
+            for (z = z0; z<z1; z++)
+              {
+                offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                for (int c = 0; c < 3; c++)
+                  accumulated[c] += gamma_to_linear[image[offset2 + c]];
+                accumulated[3] += image[offset2 + 3];
+                count++;
+              }
+        }
+        else
+        {
+          for (q = q0; q<q1; q++)
+            for (z = z0; z<z1; z++)
+              {
+                offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                for (int c = 0; c < 4; c++)
+                  accumulated[c] += image[offset2 + c];
+                count++;
+              }
+        }
 
-          if (q1 == q0) q1 = q0+1;
-          if (z1 == z0) z1 = z0+1;
-          if (q1 >= image_w) q1--;
-          if (z1 >= image_h) z1--;
-
+        if (count)
+        {
           if (linear)
           {
-            for (q = q0; q<q1; q++)
-              for (z = z0; z<z1; z++)
-                {
-                  offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                  for (int c = 0; c < 3; c++)
-                    accumulated[c] += gamma_to_linear[image[offset2 + c]];
-                  accumulated[3] += image[offset2 + 3];
-                  count++;
-                }
+            for (int c = 0; c < 3; c++)
+              rgba[i + c] = linear_to_gamma[accumulated[c]/count];
+            rgba[i + 3] = accumulated[3]/count;
           }
           else
           {
-            for (q = q0; q<q1; q++)
-              for (z = z0; z<z1; z++)
-                {
-                  offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                  for (int c = 0; c < 4; c++)
-                    accumulated[c] += image[offset2 + c];
-                  count++;
-                }
-          }
-
-          if (count)
-          {
-            if (linear)
-            {
-              for (int c = 0; c < 3; c++) rgba[i + c] = linear_to_gamma[accumulated[c]/count];
-              rgba[i + 3] = accumulated[3]/count;
-            }
-            else
-            {
-              for (int c = 0; c < 4; c++) rgba[i + c] = accumulated[c]/count;
-            }
+            for (int c = 0; c < 4; c++) rgba[i + c] = accumulated[c]/count;
           }
         }
+      }
       i+= 4;
     }
   }
