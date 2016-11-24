@@ -165,6 +165,37 @@ image_load (const char *path,
   return NULL;
 }
 
+static uint16_t gamma_to_linear[256];
+static uint8_t  linear_to_gamma[65536];
+
+static inline void init_gamma_tables (void)
+{
+  static int done = 0;
+  if (done)
+    return;
+  for (int i = 0; i < 256; i++)
+    {
+      float gamma = i / 255.0f;
+      float linear;
+      if (gamma > 0.04045f)
+        linear = powf ((gamma+ 0.055f) / 1.055f, 2.4f);
+      else
+        linear = gamma/ 12.92;
+      gamma_to_linear[i]= linear* 65535.0f + 0.5f;
+    }
+  for (int i = 0; i < 65536; i++)
+    {
+      float linear= i / 65535.0f;
+      float gamma;
+
+      if (linear > 0.003130804954f)
+        gamma = 1.055f * powf (linear, (1.0f/2.4f)) - 0.055f;
+      else
+        gamma = 12.92f * linear;
+      linear_to_gamma[i]=gamma * 255.0f + 0.5f;
+    }
+}
+
 void resample_image (const unsigned char *image,
                      int                  image_w,
                      int                  image_h,
@@ -176,9 +207,12 @@ void resample_image (const unsigned char *image,
                      float                y_offset,
                      float                factor,
                      float                aspect,
-                     int                  rotate)
+                     int                  rotate,
+                     int                  linear)
 {
   int y, x;
+  if (linear)
+    init_gamma_tables ();
   for (y = 0; y < outh; y++)
   {
     int i = y * outs;
@@ -227,6 +261,21 @@ void resample_image (const unsigned char *image,
           if (q1 == q0) q1 = q0+1;
           if (z1 == z0) z1 = z0+1;
 
+          if (linear)
+          {
+              for (q = q0; q<q1; q++)
+                for (z = z0; z<z1; z++)
+                  {
+                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                    accumulated[0] += gamma_to_linear[image[offset2 + 0]];
+                    accumulated[1] += gamma_to_linear[image[offset2 + 1]];
+                    accumulated[2] += gamma_to_linear[image[offset2 + 2]];
+                    accumulated[3] += image[offset2 + 3];
+                    c++;
+                  }
+          }
+          else
+          {
           switch (rotate)
           {
             case 90:
@@ -257,11 +306,46 @@ void resample_image (const unsigned char *image,
                   }
               break;
           }
+          }
         }
 
+      if (linear)
+      {
       switch (c)
       {
         case 0:
+          break;
+        case 1:
+          rgba[i + 0] = linear_to_gamma[accumulated[0]];
+          rgba[i + 1] = linear_to_gamma[accumulated[1]];
+          rgba[i + 2] = linear_to_gamma[accumulated[2]];
+          rgba[i + 3] = accumulated[3];
+          break;
+        case 4:
+          rgba[i + 0] = linear_to_gamma[accumulated[0]/4];
+          rgba[i + 1] = linear_to_gamma[accumulated[1]/4];
+          rgba[i + 2] = linear_to_gamma[accumulated[2]/4];
+          rgba[i + 3] = accumulated[3]/4;
+          break;
+        case 8:
+          rgba[i + 0] = linear_to_gamma[accumulated[0]/8];
+          rgba[i + 1] = linear_to_gamma[accumulated[1]/8];
+          rgba[i + 2] = linear_to_gamma[accumulated[2]/8];
+          rgba[i + 3] = accumulated[3]/8;
+          break;
+        default:
+          rgba[i + 0] = linear_to_gamma[accumulated[0]/c];
+          rgba[i + 1] = linear_to_gamma[accumulated[1]/c];
+          rgba[i + 2] = linear_to_gamma[accumulated[2]/c];
+          rgba[i + 3] = accumulated[3]/c;
+          break;
+      }
+      }
+      else
+      switch (c)
+      {
+        case 0:
+          break;
         case 1:
           rgba[i + 0] = accumulated[0];
           rgba[i + 1] = accumulated[1];
@@ -279,12 +363,6 @@ void resample_image (const unsigned char *image,
           rgba[i + 1] = accumulated[1]/8;
           rgba[i + 2] = accumulated[2]/8;
           rgba[i + 3] = accumulated[3]/8;
-          break;
-        case 16:
-          rgba[i + 0] = accumulated[0]/16;
-          rgba[i + 1] = accumulated[1]/16;
-          rgba[i + 2] = accumulated[2]/16;
-          rgba[i + 3] = accumulated[3]/16;
           break;
         default:
           rgba[i + 0] = accumulated[0]/c;

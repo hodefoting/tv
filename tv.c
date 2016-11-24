@@ -38,6 +38,8 @@ int            pdf            = 0;
 int            zero_origin    = 0;
 int            thumbs         = 0;
 
+int            linear         = 1;
+
 int            set_w = 0;
 int            set_h = 0;
 
@@ -1047,7 +1049,8 @@ void resample_image (const unsigned char *image,
                      float                y_offset,
                      float                factor,
                      float                aspect,
-                     int                  rotate);
+                     int                  rotate,
+                     int                  linear);
 
 void fill_rect (unsigned char *rgba,
                 int            outw,
@@ -1151,7 +1154,8 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
                   0.0,
                   1.0/f,
                   1.0,
-                  rotate);
+                  rotate,
+                  linear);
 
   if (!realpath (path, resolved))
     strcpy (resolved, path);
@@ -1192,18 +1196,19 @@ void redraw()
 
   if(!thumbs && image)
   {
-     resample_image (image, 
-                  image_w,
-                  image_h,
-                  rgba,
-                  outw,
-                  outh,
-                  outw * 4,
-                  floor(x_offset),
-                  floor(y_offset),
-                  factor,
-                  aspect,
-                  rotate);
+    resample_image (image, 
+                    image_w,
+                    image_h,
+                    rgba,
+                    outw,
+                    outh,
+                    outw * 4,
+                    floor(x_offset),
+                    floor(y_offset),
+                    factor,
+                    aspect,
+                    rotate,
+                    linear);
 
      if (brightness != 0 || contrast != 1.0)
      {
@@ -1304,10 +1309,12 @@ void redraw()
                   outw/DIVISOR+2, h2, outw * 4,
                   255,0,0);
      }
+
      resample_image (image, image_w, image_h,
                      rgba + (outw * y + x) * 4,
                      outw/DIVISOR, h, outw * 4,
-                     0, 0, 1.0/factor, aspect, 0);
+                     0, 0, 1.0/factor, aspect, 0,
+                     linear);
      free (image);
     }
     else
