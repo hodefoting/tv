@@ -272,34 +272,15 @@ void resample_image (const unsigned char *image,
       int q1 = (x+1) * factor + x_offset;
       int accumulated[4] = {0,0,0,0};
       int got_coverage = 0;
-      int z0;
-      int z1;
-
-      z0 = (y + v + 0) * factor * aspect + y_offset;
-      z1 = (y + v + 1) * factor * aspect + y_offset;
-            
-      int offset;
-      switch (rotate)
-      {
-        default:
-        case 0:
-          offset = (int)((z0) * image_w + q0)*4;
+      int z0 = (y + v + 0) * factor * aspect + y_offset;
+      int z1 = (y + v + 1) * factor * aspect + y_offset;
+      int offset = (int)((z0) * image_w + q0)*4;
   
-          if (z0 < image_h &&
-              q0 < image_w &&
-              z0 >= 0 &&
-              q0 >= 0)
-              got_coverage = image[offset+3]>127;
-            break;
-        case 90:
-          offset = (int)((image_h-q0) * image_w + z0)*4;
-          if (q0 < image_h &&
-              z0 < image_w &&
-              q0 >= 0 &&
-              z0 >= 0)
-            got_coverage = image[offset+3]>127;
-            break;
-      }
+      if (z0 < image_h &&
+          q0 < image_w &&
+          z0 >= 0 &&
+          q0 >= 0)
+        got_coverage = image[offset+3]>127;
 
       int count = 0;
       if (got_coverage)
@@ -314,59 +295,41 @@ void resample_image (const unsigned char *image,
 
           if (linear)
           {
-              for (q = q0; q<q1; q++)
-                for (z = z0; z<z1; z++)
-                  {
-                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                    for (int c = 0; c < 3; c++)
-                      accumulated[c] += gamma_to_linear[image[offset2 + c]];
-                    accumulated[3] += image[offset2 + 3];
-                    count++;
-                  }
+            for (q = q0; q<q1; q++)
+              for (z = z0; z<z1; z++)
+                {
+                  offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
+                  for (int c = 0; c < 3; c++)
+                    accumulated[c] += gamma_to_linear[image[offset2 + c]];
+                  accumulated[3] += image[offset2 + 3];
+                  count++;
+                }
           }
           else
           {
-          switch (rotate)
-          {
-            case 90:
-#if 0
-              for (q = q0; q<q1; q++)
-                for (z = z0; z<z1; z++)
+            for (q = q0; q<q1; q++)
+              for (z = z0; z<z1; z++)
                 {
-                  offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
+                  offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
                   for (int c = 0; c < 4; c++)
                     accumulated[c] += image[offset2 + c];
                   count++;
                 }
-#endif
-              break;
-            case 0:
-            default:
-              for (q = q0; q<q1; q++)
-                for (z = z0; z<z1; z++)
-                  {
-                    offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                    for (int c = 0; c < 4; c++)
-                      accumulated[c] += image[offset2 + c];
-                    count++;
-                  }
-              break;
           }
-          }
-        }
 
-      if (count)
-      {
-        if (linear)
-        {
-          for (int c = 0; c < 3; c++) rgba[i + c] = linear_to_gamma[accumulated[c]/count];
-          rgba[i + 3] = accumulated[3]/count;
+          if (count)
+          {
+            if (linear)
+            {
+              for (int c = 0; c < 3; c++) rgba[i + c] = linear_to_gamma[accumulated[c]/count];
+              rgba[i + 3] = accumulated[3]/count;
+            }
+            else
+            {
+              for (int c = 0; c < 4; c++) rgba[i + c] = accumulated[c]/count;
+            }
+          }
         }
-        else
-        {
-          for (int c = 0; c < 4; c++) rgba[i + c] = accumulated[c]/count;
-        }
-      }
       i+= 4;
     }
   }
