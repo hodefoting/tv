@@ -166,6 +166,45 @@ image_load (const char *path,
   return NULL;
 }
 
+int write_jpg (char const *filename,
+               int w, int h, int comp, const void *data,
+               int stride_in_bytes)
+{
+  const uint8_t *cdata = data;
+  FILE *file = fopen (filename, "wb");
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr       jerr;
+
+  if (!file)
+  {
+    return -1;
+  }
+  cinfo.err = jpeg_std_error (&jerr);
+  jpeg_create_compress (&cinfo);
+  jpeg_stdio_dest (&cinfo, file);
+  cinfo.image_width = w;
+  cinfo.image_height = h;
+  cinfo.input_components = 4;
+  cinfo.in_color_space = JCS_EXT_RGBX;
+
+  jpeg_set_defaults (&cinfo);
+  jpeg_set_quality (&cinfo, 75, TRUE);
+  jpeg_start_compress (&cinfo, TRUE);
+
+  while (cinfo.next_scanline < cinfo.image_height)
+  {
+    JSAMPROW rp = (JSAMPROW) cdata + cinfo.next_scanline * stride_in_bytes;
+    jpeg_write_scanlines (&cinfo, &rp, 1);
+  }
+  jpeg_finish_compress (&cinfo);
+
+  fclose (file);
+
+  jpeg_destroy_compress (&cinfo);
+  return 0;
+}
+
+
 static uint16_t gamma_to_linear[256];
 static uint8_t  linear_to_gamma[65536];
 
@@ -229,14 +268,14 @@ void resample_image (const unsigned char *image,
     for (x = 0; x < outw; x ++)
     {
       int v = 0;
-      int q0 = x     * factor + x_offset;
+      int q0 = (x+0) * factor + x_offset;
       int q1 = (x+1) * factor + x_offset;
       int accumulated[4] = {0,0,0,0};
       int got_coverage = 0;
       int z0;
       int z1;
 
-      z0 = (y + v) * factor * aspect + y_offset;
+      z0 = (y + v + 0) * factor * aspect + y_offset;
       z1 = (y + v + 1) * factor * aspect + y_offset;
             
       int offset;
@@ -262,7 +301,7 @@ void resample_image (const unsigned char *image,
             break;
       }
 
-      int c = 0;
+      int count = 0;
       if (got_coverage)
         {
           int z, q;
@@ -279,11 +318,10 @@ void resample_image (const unsigned char *image,
                 for (z = z0; z<z1; z++)
                   {
                     offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                    accumulated[0] += gamma_to_linear[image[offset2 + 0]];
-                    accumulated[1] += gamma_to_linear[image[offset2 + 1]];
-                    accumulated[2] += gamma_to_linear[image[offset2 + 2]];
+                    for (int c = 0; c < 3; c++)
+                      accumulated[c] += gamma_to_linear[image[offset2 + c]];
                     accumulated[3] += image[offset2 + 3];
-                    c++;
+                    count++;
                   }
           }
           else
@@ -296,11 +334,9 @@ void resample_image (const unsigned char *image,
                 for (z = z0; z<z1; z++)
                 {
                   offset2 = offset + ((q0-q) * image_w + (z-z0))  * 4;
-                  accumulated[0] += image[offset2 + 0];
-                  accumulated[1] += image[offset2 + 1];
-                  accumulated[2] += image[offset2 + 2];
-                  accumulated[3] += image[offset2 + 3];
-                  c++;
+                  for (int c = 0; c < 4; c++)
+                    accumulated[c] += image[offset2 + c];
+                  count++;
                 }
 #endif
               break;
@@ -310,118 +346,29 @@ void resample_image (const unsigned char *image,
                 for (z = z0; z<z1; z++)
                   {
                     offset2 = offset + ((z-z0) * image_w + (q-q0))  * 4;
-                    accumulated[0] += image[offset2 + 0];
-                    accumulated[1] += image[offset2 + 1];
-                    accumulated[2] += image[offset2 + 2];
-                    accumulated[3] += image[offset2 + 3];
-                    c++;
+                    for (int c = 0; c < 4; c++)
+                      accumulated[c] += image[offset2 + c];
+                    count++;
                   }
               break;
           }
           }
         }
 
-      if (linear)
+      if (count)
       {
-      switch (c)
-      {
-        case 0:
-          break;
-        case 1:
-          rgba[i + 0] = linear_to_gamma[accumulated[0]];
-          rgba[i + 1] = linear_to_gamma[accumulated[1]];
-          rgba[i + 2] = linear_to_gamma[accumulated[2]];
-          rgba[i + 3] = accumulated[3];
-          break;
-        case 4:
-          rgba[i + 0] = linear_to_gamma[accumulated[0]/4];
-          rgba[i + 1] = linear_to_gamma[accumulated[1]/4];
-          rgba[i + 2] = linear_to_gamma[accumulated[2]/4];
-          rgba[i + 3] = accumulated[3]/4;
-          break;
-        case 8:
-          rgba[i + 0] = linear_to_gamma[accumulated[0]/8];
-          rgba[i + 1] = linear_to_gamma[accumulated[1]/8];
-          rgba[i + 2] = linear_to_gamma[accumulated[2]/8];
-          rgba[i + 3] = accumulated[3]/8;
-          break;
-        default:
-          rgba[i + 0] = linear_to_gamma[accumulated[0]/c];
-          rgba[i + 1] = linear_to_gamma[accumulated[1]/c];
-          rgba[i + 2] = linear_to_gamma[accumulated[2]/c];
-          rgba[i + 3] = accumulated[3]/c;
-          break;
-      }
-      }
-      else
-      switch (c)
-      {
-        case 0:
-          break;
-        case 1:
-          rgba[i + 0] = accumulated[0];
-          rgba[i + 1] = accumulated[1];
-          rgba[i + 2] = accumulated[2];
-          rgba[i + 3] = accumulated[3];
-          break;
-        case 4:
-          rgba[i + 0] = accumulated[0]/4;
-          rgba[i + 1] = accumulated[1]/4;
-          rgba[i + 2] = accumulated[2]/4;
-          rgba[i + 3] = accumulated[3]/4;
-          break;
-        case 8:
-          rgba[i + 0] = accumulated[0]/8;
-          rgba[i + 1] = accumulated[1]/8;
-          rgba[i + 2] = accumulated[2]/8;
-          rgba[i + 3] = accumulated[3]/8;
-          break;
-        default:
-          rgba[i + 0] = accumulated[0]/c;
-          rgba[i + 1] = accumulated[1]/c;
-          rgba[i + 2] = accumulated[2]/c;
-          rgba[i + 3] = accumulated[3]/c;
-          break;
+        if (linear)
+        {
+          for (int c = 0; c < 3; c++) rgba[i + c] = linear_to_gamma[accumulated[c]/count];
+          rgba[i + 3] = accumulated[3]/count;
+        }
+        else
+        {
+          for (int c = 0; c < 4; c++) rgba[i + c] = accumulated[c]/count;
+        }
       }
       i+= 4;
     }
   }
 }
 
-int write_jpg (char const *filename,
-               int w, int h, int comp, const void *data,
-               int stride_in_bytes)
-{
-  const uint8_t *cdata = data;
-  FILE *file = fopen (filename, "wb");
-  struct jpeg_compress_struct cinfo;
-  struct jpeg_error_mgr       jerr;
-
-  if (!file)
-  {
-    return -1;
-  }
-  cinfo.err = jpeg_std_error (&jerr);
-  jpeg_create_compress (&cinfo);
-  jpeg_stdio_dest (&cinfo, file);
-  cinfo.image_width = w;
-  cinfo.image_height = h;
-  cinfo.input_components = 4;
-  cinfo.in_color_space = JCS_EXT_RGBX;
-
-  jpeg_set_defaults (&cinfo);
-  jpeg_set_quality (&cinfo, 75, TRUE);
-  jpeg_start_compress (&cinfo, TRUE);
-
-  while (cinfo.next_scanline < cinfo.image_height)
-  {
-    JSAMPROW rp = (JSAMPROW) cdata + cinfo.next_scanline * stride_in_bytes;
-    jpeg_write_scanlines (&cinfo, &rp, 1);
-  }
-  jpeg_finish_compress (&cinfo);
-
-  fclose (file);
-
-  jpeg_destroy_compress (&cinfo);
-  return 0;
-}
