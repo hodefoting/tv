@@ -15,6 +15,7 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <assert.h>
+#include "tv.h"
 
 #define HAVE_JPEG
 #define HAVE_PNG
@@ -173,6 +174,9 @@ static inline void init_gamma_tables (void)
   static int done = 0;
   if (done)
     return;
+#ifdef USE_OPEN_MP
+  #pragma omp for
+#endif
   for (int i = 0; i < 256; i++)
     {
       float gamma = i / 255.0f;
@@ -183,11 +187,13 @@ static inline void init_gamma_tables (void)
         linear = gamma/ 12.92;
       gamma_to_linear[i]= linear* 65535.0f + 0.5f;
     }
+#ifdef USE_OPEN_MP
+  #pragma omp for
+#endif
   for (int i = 0; i < 65536; i++)
     {
       float linear= i / 65535.0f;
       float gamma;
-
       if (linear > 0.003130804954f)
         gamma = 1.055f * powf (linear, (1.0f/2.4f)) - 0.055f;
       else
@@ -213,6 +219,10 @@ void resample_image (const unsigned char *image,
   int y, x;
   if (linear)
     init_gamma_tables ();
+
+#ifdef USE_OPEN_MP
+  #pragma omp for private(y)
+#endif
   for (y = 0; y < outh; y++)
   {
     int i = y * outs;
@@ -260,6 +270,8 @@ void resample_image (const unsigned char *image,
 
           if (q1 == q0) q1 = q0+1;
           if (z1 == z0) z1 = z0+1;
+          if (q1 >= image_w) q1--;
+          if (z1 >= image_h) z1--;
 
           if (linear)
           {

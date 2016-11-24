@@ -17,7 +17,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <ftw.h>
-#include "tfb.h"
+#include "tv.h"
 
 float          factor         = -1.0;
 float          x_offset       = 0.0;
@@ -1213,6 +1213,9 @@ void redraw()
      if (brightness != 0 || contrast != 1.0)
      {
        int i = 0;
+#ifdef USE_OPEN_MP
+  #pragma omp for
+#endif
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
@@ -1238,6 +1241,9 @@ void redraw()
      if (tfb.grayscale)
      {
        int i = 0;
+#ifdef USE_OPEN_MP
+  #pragma omp for
+#endif
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {

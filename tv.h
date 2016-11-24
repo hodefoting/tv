@@ -1,4 +1,10 @@
 
+#define USE_OPEN_MP 1
+
+#ifdef USE_OPEN_MP
+#include <omp.h>
+#endif
+
 typedef enum {TV_AUTO,
               TV_ASCII,
               TV_SIXEL,
