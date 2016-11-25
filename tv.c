@@ -37,20 +37,25 @@ const char    *output_path    = NULL;
 int            pdf            = 0;
 int            zero_origin    = 0;
 int            thumbs         = 0;
-
 int            linear         = 1;
-
-int            set_w = 0;
-int            set_h = 0;
-
+int            set_w          = 0;
+int            set_h          = 0;
 float          DIVISOR        = 5.0;
-
 int            brightness     = 0;
 float          contrast       = 1.0;
 
 Tfb tfb = {
 1,1,1,-1,0,0,1,0,0,TV_AUTO
 };
+
+enum {
+  TV_ZOOM_NONE = 0,
+  TV_ZOOM_FIT,
+  TV_ZOOM_FILL,
+  TV_ZOOM_WIDTH
+};
+
+int zoom_mode = TV_ZOOM_FIT;
 
 float aspect = 1.0;
 int rotate = 0;
@@ -69,6 +74,7 @@ int status_y = 25;
 int status_x = 1;
 
 int loop = 1;
+
 #if 0
 int fb_bpp = 1;
 int fb_mapped_size = 1;
@@ -77,7 +83,6 @@ int palcount = -1;
 #endif
 
 int sixel_is_supported (void);
-
 
 static unsigned short ored[256], ogreen[256], oblue[256];
 static struct fb_cmap ocmap = {0, 256, ored, ogreen, oblue, NULL};
@@ -92,6 +97,7 @@ void usage ()
   printf ("  -s <widthxheight>\n");
   printf ("     the dimension is in pixels for sixel modes, and thumbnails creation\n");
   printf ("     and in character cells for ascii/utf8 modes\n");
+
   //printf ("  -o      reset cursor to 0,0 after each drawing\n");
 #if 0
   F - fit
@@ -280,7 +286,6 @@ EvReaction cmd_contrast_down (void)
   return REDRAW;
 }
 
-
 EvReaction cmd_brightness_up (void)
 {
   brightness += 1;
@@ -388,7 +393,6 @@ void drop_image (void)
   image = NULL;
   reset_controls ();
 }
-
 
 EvReaction cmd_jump (void)
 {
@@ -776,7 +780,6 @@ void print_status (void)
         printf (" %s", basename (a));
         free (a);
       }
-
     }
 
     if (verbosity > 1)
@@ -1160,7 +1163,11 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   if (!realpath (path, resolved))
     strcpy (resolved, path);
 
-  stbi_write_png (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
+  if (strstr (resolved, ".png"))
+    stbi_write_png (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
+  else
+    write_jpg (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
+
   free (trgba);
 }
 
@@ -1544,7 +1551,15 @@ main (int argc, char **argv)
 
       if (factor < 0)
       {
-        cmd_zoom_fill ();
+        switch (zoom_mode)
+        {
+          case TV_ZOOM_FILL:
+            cmd_zoom_fill ();
+            break;
+          case TV_ZOOM_FIT:
+            cmd_zoom_fit ();
+            break;
+        }
         if (pdf)
         {
           x_offset = 0.0;

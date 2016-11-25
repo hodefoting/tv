@@ -127,6 +127,39 @@ unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#if 0
+unsigned char *
+detect_mimetype (const char *path)
+{
+  unsigned char jpgsig[4]={0xff, 0xd8, 0xff, 0xe0};
+  char tmpbuf[256+1];
+  int fd;
+  fd = open (path, "rw");
+  if (!fd)
+    return "text/plan";
+  length = read (fd, tmpbuf, 256)
+  if (length <= 0)
+    return "text/plain";
+  close (fd);
+  tmpbuf[length]=0;
+
+
+  if (!memcmp(tmpbuf, "\211PNG\r\n\032\n", 8))
+     return "image/png";
+  else if (!memcmp(tmpbuf, jpgsig, 4))
+     return "image/jpeg";
+
+  if (strstr (path, ".tga") ||
+      strstr (path, ".pgm") ||
+      strstr (path, ".gif") ||
+      strstr (path, ".GIF") ||
+      strstr (path, ".tiff") ||
+      strstr (path, ".bmp") ||
+      strstr (path, ".tiff"))
+    return "image/x";
+}
+#endif
+
 unsigned char *
 image_load (const char *path,
             int        *width,
@@ -287,8 +320,8 @@ void resample_image (const unsigned char *image,
 
         if (q1 == q0) q1 = q0+1;
         if (z1 == z0) z1 = z0+1;
-        if (q1 >= image_w) q1--;
-        if (z1 >= image_h) z1--;
+        if (q1 >= image_w) q1 = image_w-1;
+        if (z1 >= image_h) z1 = image_h-1;
 
         if (linear)
         {

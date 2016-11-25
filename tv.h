@@ -1,5 +1,5 @@
 
-#define USE_OPEN_MP 1
+//#define USE_OPEN_MP 1
 
 #ifdef USE_OPEN_MP
 #include <omp.h>
