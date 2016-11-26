@@ -23,7 +23,7 @@ typedef struct CachedImage
   char *path;
   int width;
   int height;
-  char *data;
+  unsigned char *data;
 } CacheImage;
 
 static int compute_size (int w, int h)
@@ -172,7 +172,7 @@ unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
 #include "stb_image.h"
 
 #if 1
-unsigned char *
+char *
 detect_mime_type (const char *path)
 {
   unsigned char jpgsig[4]={0xff, 0xd8, 0xff, 0xe0};
@@ -201,6 +201,8 @@ detect_mime_type (const char *path)
       strstr (path, ".bmp") ||
       strstr (path, ".tiff"))
     return "image/x";
+
+  return NULL;
 }
 #endif
 
@@ -211,7 +213,8 @@ image_load (const char *path,
             int        *stride)
 {
   const char *mime_type = detect_mime_type (path);
-
+  if (mime_type == NULL)
+    return NULL;
   if (!strcmp (mime_type, "image/jpeg"))
   {
 #ifdef HAVE_JPEG
