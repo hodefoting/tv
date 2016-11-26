@@ -1413,31 +1413,40 @@ void redraw()
 }
 
 static long spider_count = 0;
+static long img_count = 0;
+
 static int ftw_cb (const char *path, const struct stat *info, const int typeflag)
 {
-  if (!strstr (path, "/tmp/") && (strstr (path, ".png") ||
+  if (!strstr (path, "/tmp/") && 
+     (strstr (path, ".png") ||
       strstr (path, ".PNG") ||
       strstr (path, ".gif") ||
       strstr (path, ".GIF") ||
       strstr (path, ".jpg") ||
+      strstr (path, ".jpeg") ||
+      strstr (path, ".JPEG") ||
       strstr (path, ".JPG")))
   {
     images[images_c++]=strdup(path);
     images[images_c]=0;
+    img_count ++;
   }
   spider_count ++;
-#if 0
-  if ( (spider_count % 50) == 0)
+#if 1
+
+#define SKIP 100
+  if ( (spider_count % SKIP) == 0)
   {
-    switch ( (spider_count / 50) % 4  )
+    switch ( (spider_count / SKIP) % 4  )
     {
-      case 0: fprintf (stdout, "\r-"); break;
-      case 1: fprintf (stdout, "\r/"); break;
-      case 2: fprintf (stdout, "\r|"); break;
-      case 3: fprintf (stdout, "\r\\"); break;
+      case 0: fprintf (stdout, "\r- %li images of %li files", img_count); break;
+      case 1: fprintf (stdout, "\r/ %li images of %li files", img_count); break;
+      case 2: fprintf (stdout, "\r| %li images of %li files", img_count); break;
+      case 3: fprintf (stdout, "\r\\ %li images of %li files", img_count); break;
     }
   }
 #endif
+#undef SKIP
   return 0;
 }
 

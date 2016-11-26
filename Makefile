@@ -1,4 +1,8 @@
-CFLAGS=-std=c99  -g  -O3
+CFLAGS=-std=c99  -g  
+
+
+o3: *.c tv.h glyphs.inc
+	$(CC) $(CFLAGS) -o tv -O3 *.c -lm `pkg-config --cflags --libs libjpeg libpng --static` 
 
 tv: *.c tv.h glyphs.inc
 	$(CC) $(CFLAGS) -o $@ *.c -lm `pkg-config --cflags --libs libjpeg libpng --static` 

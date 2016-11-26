@@ -127,22 +127,22 @@ unsigned char *png_load (const char *filename, int *rw, int *rh, int *rs) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#if 0
+#if 1
 unsigned char *
-detect_mimetype (const char *path)
+detect_mime_type (const char *path)
 {
   unsigned char jpgsig[4]={0xff, 0xd8, 0xff, 0xe0};
   char tmpbuf[256+1];
+  ssize_t length;
   int fd;
-  fd = open (path, "rw");
+  fd = open (path, O_RDONLY);
   if (!fd)
     return "text/plan";
-  length = read (fd, tmpbuf, 256)
+  length = read (fd, tmpbuf, 256);
   if (length <= 0)
     return "text/plain";
   close (fd);
   tmpbuf[length]=0;
-
 
   if (!memcmp(tmpbuf, "\211PNG\r\n\032\n", 8))
      return "image/png";
@@ -166,37 +166,33 @@ image_load (const char *path,
             int        *height,
             int        *stride)
 {
+  const char *mime_type = detect_mime_type (path);
+
+  if (!strcmp (mime_type, "image/jpeg"))
+  {
 #ifdef HAVE_JPEG
-  if (strstr (path, ".jpg") ||
-      strstr (path, ".jpeg") ||
-      strstr (path, ".JPG"))
-  {
-	 return jpeg_load (path, width, height, stride);
-  }
-#endif
-
-#ifdef HAVE_PNG
-  if (strstr (path, ".png") ||
-      strstr (path, ".PNG"))
-  {
-	 return png_load (path, width, height, stride);
-  }
-#endif
-
-  if (strstr (path, ".tga") ||
-      strstr (path, ".pgm") ||
-      strstr (path, ".gif") ||
-      strstr (path, ".GIF") ||
-      strstr (path, ".tiff") ||
-      strstr (path, ".bmp") ||
-      strstr (path, ".tiff") ||
-      strstr (path, ".png") ||
-      strstr (path, ".PNG") ||
-      strstr (path, ".jpg") ||
-      strstr (path, ".jpeg") ||
-      strstr (path, ".JPG"))
+	return jpeg_load (path, width, height, stride);
+#else
     return stbi_load (path, width, height, stride, 4);
-  return NULL;
+#endif
+  }
+  else if (!strcmp (mime_type, "image/png"))
+  {
+#ifdef HAVE_PNG
+	return png_load (path, width, height, stride);
+#else
+    return stbi_load (path, width, height, stride, 4);
+#endif
+  }
+  else if (!strcmp (mime_type, "image/x"))
+  {
+    return stbi_load (path, width, height, stride, 4);
+  }
+  else
+  {
+    return NULL;
+  }
+
 }
 
 int write_jpg (char const *filename,
