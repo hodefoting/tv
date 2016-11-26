@@ -16,11 +16,55 @@
 #include <stdint.h>
 #include <assert.h>
 #include "tv.h"
+#include "mrg-list.h"
+
+typedef struct CachedImage
+{
+  char *path;
+  int width;
+  int height;
+  char *data;
+} CacheImage;
+
+static int compute_size (int w, int h)
+{
+  return w * h * 4 + sizeof (CacheImage) + 1024;
+}
+
+static long image_cache_size = 0;
+static int  image_cache_max_size_mb = 128;
+
+static MrgList *image_cache = NULL;
+
+static void free_image (void *data, void *foo)
+{
+  CacheImage *image = data;
+  free (image->path);
+  free (image->data);
+  free (image);
+}
+
+static void trim_cache (void)
+{
+  while (image_cache_size > image_cache_max_size_mb * 1024 * 1024)
+  {
+    CacheImage *image;
+    int item = mrg_list_length (image_cache);
+    int w, h;
+    item = random() % item;
+    image = mrg_list_nth (image_cache, item)->data;
+    w = image->width;
+    h = image->height;
+    mrg_list_remove (&image_cache, image);
+    image_cache_size -= compute_size (w, h);
+  }
+}
+
+
 
 #define HAVE_JPEG
 #define HAVE_PNG
-
-#ifdef HAVE_JPEG
+#ifdef  HAVE_JPEG
 
 #include <jpeglib.h>
 
@@ -192,7 +236,6 @@ image_load (const char *path,
   {
     return NULL;
   }
-
 }
 
 int write_jpg (char const *filename,
@@ -232,7 +275,6 @@ int write_jpg (char const *filename,
   jpeg_destroy_compress (&cinfo);
   return 0;
 }
-
 
 static uint16_t gamma_to_linear[256];
 static uint8_t  linear_to_gamma[65536];
@@ -361,4 +403,60 @@ void resample_image (const unsigned char *image,
     }
   }
 }
+
+void mrg_set_image_cache_mb (int new_max_size)
+{
+  image_cache_max_size_mb = new_max_size;
+  trim_cache ();
+}
+
+int mrg_get_image_cache_mb (void)
+{
+  return image_cache_max_size_mb;
+}
+
+unsigned char *cached_image (const char *path,
+                             int *width,
+                             int *height)
+{
+  MrgList *l;
+
+  if (!path)
+    return NULL;
+  for (l = image_cache; l; l = l->next)
+  {
+    CacheImage *image = l->data;
+    if (!strcmp (image->path, path))
+    {
+      if (width)
+        *width = image->width;
+      if (height)
+        *height = image->height;
+      return image->data;
+    }
+  }
+  trim_cache ();
+  {
+    int w, h, stride;
+    unsigned char *data;
+    data = image_load (path, &w, &h, &stride);
+    if (data)
+    {
+      CacheImage *image = malloc (sizeof (CacheImage));
+      image->data = data;
+      image->width = w;
+      image->height = h;
+      image->path = strdup (path);
+      mrg_list_prepend_full (&image_cache, image,
+                           (void*)free_image, NULL);
+      image_cache_size +=
+          compute_size (w, h);
+
+      return cached_image (path, width, height);
+    }
+  }
+  return NULL;
+}
+
+
 
