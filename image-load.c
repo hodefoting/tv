@@ -209,10 +209,11 @@ detect_mime_type (const char *path)
 unsigned char *
 image_load (const char *path,
             int        *width,
-            int        *height,
-            int        *stride)
+            int        *height)
 {
   const char *mime_type = detect_mime_type (path);
+  int stride_v;
+  int *stride = &stride_v;
   if (mime_type == NULL)
     return NULL;
   if (!strcmp (mime_type, "image/jpeg"))
@@ -418,7 +419,7 @@ int mrg_get_image_cache_mb (void)
   return image_cache_max_size_mb;
 }
 
-unsigned char *cached_image (const char *path,
+unsigned char *image_cached (const char *path,
                              int *width,
                              int *height)
 {
@@ -440,9 +441,9 @@ unsigned char *cached_image (const char *path,
   }
   trim_cache ();
   {
-    int w, h, stride;
+    int w, h;
     unsigned char *data;
-    data = image_load (path, &w, &h, &stride);
+    data = image_load (path, &w, &h);
     if (data)
     {
       CacheImage *image = malloc (sizeof (CacheImage));
@@ -455,7 +456,7 @@ unsigned char *cached_image (const char *path,
       image_cache_size +=
           compute_size (w, h);
 
-      return cached_image (path, width, height);
+      return image_cached (path, width, height);
     }
   }
   return NULL;

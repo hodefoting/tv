@@ -31,6 +31,11 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh);
 
 int stdin_got_data (int usec);
 
-unsigned char *cached_image (const char *path,
+unsigned char *
+image_load (const char *path,
+            int        *width,
+            int        *height);
+
+unsigned char *image_cached (const char *path,
                              int *width,
                              int *height);

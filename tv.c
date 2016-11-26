@@ -1030,11 +1030,6 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
   }
 }
-unsigned char *
-image_load (const char *path,
-            int        *width,
-            int        *height,
-            int        *stride);
 
 int write_jpg
            (char const *filename,
@@ -1296,7 +1291,7 @@ void redraw()
 
     uint8_t *image = 
             is_file (thumb_path) && y >=0 ?
-            image_load (thumb_path, &image_w, &image_h, NULL) : NULL;
+            image_load (thumb_path, &image_w, &image_h) : NULL;
 
     if (image && y >= 0)
     {
@@ -1439,10 +1434,10 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
   {
     switch ( (spider_count / SKIP) % 4  )
     {
-      case 0: fprintf (stdout, "\r- %li images of %li files", img_count); break;
-      case 1: fprintf (stdout, "\r/ %li images of %li files", img_count); break;
-      case 2: fprintf (stdout, "\r| %li images of %li files", img_count); break;
-      case 3: fprintf (stdout, "\r\\ %li images of %li files", img_count); break;
+      case 0: fprintf (stdout, "\r- %li images of %li files", img_count, spider_count); break;
+      case 1: fprintf (stdout, "\r/ %li images of %li files", img_count, spider_count); break;
+      case 2: fprintf (stdout, "\r| %li images of %li files", img_count, spider_count); break;
+      case 3: fprintf (stdout, "\r\\ %li images of %li files", img_count, spider_count); break;
     }
   }
 #endif
@@ -1548,7 +1543,7 @@ main (int argc, char **argv)
       if (image)
         free (image);
       image = NULL;
-      image = image_load (path, &image_w, &image_h, NULL);
+      image = image_load (path, &image_w, &image_h);
       if (!image)
       {
         cmd_next ();
