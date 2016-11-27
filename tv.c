@@ -152,27 +152,19 @@ sixel_at_exit (void)
 static int _nc_raw (void)
 {
   struct termios raw;
-  //if (!isatty (STDIN_FILENO))
-  //  return -1;
   if (!atexit_registered)
     {
       atexit (sixel_at_exit);
       atexit_registered = 1;
     }
-  //if (tcgetattr (STDIN_FILENO, &orig_attr) == -1)
-  //  return -1;
   tcgetattr (STDIN_FILENO, &orig_attr);
   raw = orig_attr;  /* modify the original mode */
   raw.c_lflag &= ~(ECHO );
   raw.c_lflag &= ~(ICANON );
-  raw.c_cc[VMIN] = 1; raw.c_cc[VTIME] = 0; /* 1 byte, no timer */
-  //if (tcsetattr (STDIN_FILENO, TCSANOW, &raw) < 0)
-  //  return -1;
+  raw.c_cc[VMIN] = 1;  /* 1 byte */
+  raw.c_cc[VTIME] = 0; /* no timer */
   tcsetattr (STDIN_FILENO, TCSANOW, &raw);
   nc_is_raw = 1;
-  //tcdrain(STDIN_FILENO);
-  //tcflush(STDIN_FILENO, 1);
-  //fflush(NULL);
   return 0;
 }
 
@@ -1138,7 +1130,7 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
 
   mk_ancestry (resolved);
 
-  uint8_t *trgba = malloc (dim * dim * 4);
+  uint8_t *trgba = malloc ((dim+2) * (dim+2) * 4);
   float f = dim / (w * 1.0);
   if (f > dim / (h * 1.0))
     f = dim / (h * 1.0);
@@ -1158,8 +1150,9 @@ make_thumb (const char *path, uint8_t *rgba, int w, int h, int dim)
   if (!realpath (path, resolved))
     strcpy (resolved, path);
 
-  if (strstr (resolved, ".png"))
-    stbi_write_png (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
+  if (strstr (resolved, ".png") ||
+      strstr (resolved, ".PNG"))
+    stbi_write_png (resolved, floor( w *f), floor(h*f), 4, trgba, floor(w * f) * 4);
   else
     write_jpg (resolved, w *f, h*f, 4, trgba, floor(w * f) * 4);
 
@@ -1179,7 +1172,7 @@ gen_thumb (const char *path, uint8_t *rgba, int w, int h)
 {
   char thumb_path[4096];
   make_thumb_path (path, thumb_path);
-  make_thumb (thumb_path, rgba, w, h, 128);
+  make_thumb (thumb_path, rgba, w, h, 64);
 }
 
 int clear = 0;
@@ -1291,7 +1284,7 @@ void redraw()
 
     uint8_t *image = 
             is_file (thumb_path) && y >=0 ?
-            image_load (thumb_path, &image_w, &image_h) : NULL;
+            image_cached (thumb_path, &image_w, &image_h) : NULL;
 
     if (image && y >= 0)
     {
@@ -1302,9 +1295,6 @@ void redraw()
 
      if (i == image_no)
      {
-        if(0)fill_rect(rgba + (outw * (y-2) + (x-2)) * 4,
-                  outw/DIVISOR+4, h+4, outw * 4,
-                  0,0,0);
         if (y > outh/2)
           y_offset_thumb += DIVISOR * 4;
         //else if (y < 0)
@@ -1323,7 +1313,6 @@ void redraw()
                      outw/DIVISOR, h, outw * 4,
                      0, 0, 1.0/factor, aspect, 0,
                      linear);
-     free (image);
     }
     else
     {

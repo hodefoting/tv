@@ -57,6 +57,7 @@ static void trim_cache (void)
     h = image->height;
     mrg_list_remove (&image_cache, image);
     image_cache_size -= compute_size (w, h);
+    fprintf (stderr, ".");
   }
 }
 
