@@ -32,7 +32,7 @@ static int compute_size (int w, int h)
 }
 
 static long image_cache_size = 0;
-static int  image_cache_max_size_mb = 128;
+static int  image_cache_max_size_mb = 32;
 
 static MrgList *image_cache = NULL;
 
@@ -323,7 +323,7 @@ void resample_image (const unsigned char *image,
                      unsigned char       *rgba,
                      int                  outw,
                      int                  outh,
-                     int                  outs,
+                     int                  outstride,
                      float                x_offset,
                      float                y_offset,
                      float                factor,
@@ -334,13 +334,25 @@ void resample_image (const unsigned char *image,
   int y, x;
   if (linear)
     init_gamma_tables ();
+  
+#if 0
+  if (y_offset + outh * factor / aspect >= image_h)
+    outh = (image_h - y_offset - 1) / factor * aspect;
+#endif
+  if (x_offset + outw * factor >= image_w)
+    outw = (image_w - x_offset) / factor;
+  if (y_offset + outh * factor * aspect >= image_h)
+    outh = (image_h - y_offset) / factor / aspect;
+
+  if (outh <= 0 || outw <= 0)
+    return;
 
 #ifdef USE_OPEN_MP
   #pragma omp for private(y)
 #endif
   for (y = 0; y < outh; y++)
   {
-    int i = y * outs;
+    int i = y * outstride;
     for (x = 0; x < outw; x ++)
     {
       int v = 0;

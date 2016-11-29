@@ -39,3 +39,21 @@ image_load (const char *path,
 unsigned char *image_cached (const char *path,
                              int *width,
                              int *height);
+
+
+
+void resample_image (const unsigned char *image,
+                     int                  image_w,
+                     int                  image_h,
+
+
+                     unsigned char       *rgba,
+                     int                  outw,
+                     int                  outh,
+                     int                  outstride,
+                     float                x_offset,
+                     float                y_offset,
+                     float                factor,
+                     float                aspect,
+                     int                  rotate,
+                     int                  linear);

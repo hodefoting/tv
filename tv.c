@@ -10,9 +10,11 @@
 #include <fcntl.h>
 #include <linux/fb.h>
 #include <linux/vt.h>
+#include <linux/kd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <stdint.h>
 #include <assert.h>
 #include <unistd.h>
@@ -40,7 +42,7 @@ int            thumbs         = 0;
 int            linear         = 1;
 int            set_w          = 0;
 int            set_h          = 0;
-float          DIVISOR        = 5.0;
+float          DIVISOR        = 6.0;
 int            brightness     = 0;
 float          contrast       = 1.0;
 
@@ -147,6 +149,13 @@ sixel_at_exit (void)
   _nc_noraw();
 
   restore_cmap ();
+#if 0
+  if (tfb.tv_mode == TV_FB){
+    int tty_fd = open("/dev/tty0", O_RDWR);
+    ioctl (tty_fd, KDSETMODE, KD_TEXT);
+    close (tty_fd);
+  }
+#endif
 }
 
 static int _nc_raw (void)
@@ -434,7 +443,7 @@ EvReaction cmd_zoom_in_small (void)
 {
   if (thumbs)
   {
-    DIVISOR /= ZOOM_FACTOR_SMALL;
+    DIVISOR -= 1.0;
     return REDRAW;
   }
 
@@ -460,7 +469,7 @@ EvReaction cmd_zoom_out_small (void)
 {
   if (thumbs)
   {
-    DIVISOR *= ZOOM_FACTOR_SMALL;
+    DIVISOR += 1.0;
     return REDRAW;
   }
 
@@ -479,7 +488,7 @@ EvReaction cmd_zoom_in (void)
 {
   if (thumbs)
   {
-    DIVISOR /= ZOOM_FACTOR;
+    DIVISOR -= 1.0;
     return REDRAW;
   }
 
@@ -505,7 +514,7 @@ EvReaction cmd_zoom_out (void)
 {
   if (thumbs)
   {
-    DIVISOR *= ZOOM_FACTOR;
+    DIVISOR += 1.0;
     return REDRAW;
   }
   x_offset += desired_width * 0.5 * factor ;
@@ -1028,20 +1037,6 @@ int write_jpg
             int w, int h, int comp, const void *data,
             int stride_in_bytes);
 
-void resample_image (const unsigned char *image,
-                     int                  image_w,
-                     int                  image_h,
-                     unsigned char       *rgba,
-                     int                  outw,
-                     int                  outh,
-                     int                  outs,
-                     float                x_offset,
-                     float                y_offset,
-                     float                factor,
-                     float                aspect,
-                     int                  rotate,
-                     int                  linear);
-
 void fill_rect (unsigned char *rgba,
                 int            outw,
                 int            outh,
@@ -1267,64 +1262,44 @@ void redraw()
 
   if (thumbs)
   {
-  int x = 10;
-#if 0
-  y_offset_thumb = 
-         image_no * 
-          (1.0 * outw/DIVISOR) / image_h * 4;
-#endif
+    y_offset_thumb = ((image_no / (int)(DIVISOR ))) * outw/(DIVISOR) / aspect - outh / 3;
+    //y_offset_thumb = outh / 3;
 
-  int y = 10 - y_offset_thumb;
-
-  for (int i = 0; i < images_c && images[i] && y < outh; i ++)
+  for (int i = image_no - 10 > 0 ? image_no - 10 : 0
+       ; i < images_c && images[i] && i < image_no+10; i ++)
   {
+    int x = ((i % (int)(DIVISOR ))+0.20) * outw/(DIVISOR);
+    int y = ((i / (int)(DIVISOR ))+0.20) * outw/(DIVISOR) / aspect -
+              y_offset_thumb;
+
     char thumb_path[4096];
     make_thumb_path (images[i], thumb_path);
     int image_w, image_h;
 
     uint8_t *image = 
-            is_file (thumb_path) && y >=0 ?
+            is_file (thumb_path) ?
             image_cached (thumb_path, &image_w, &image_h) : NULL;
 
-    if (image && y >= 0)
+    if (image)
     {
-     float factor = (1.0 * outw/DIVISOR) / image_w;
-     int h = outh - y;
-     if (h > image_h * (outw/DIVISOR)/image_w / aspect - 4)
-       h = image_h * (outw/DIVISOR)/image_w / aspect - 4;
+     float factor = (1.0 * outw/(DIVISOR + 1) ) / image_w;
+     int h = image_h * factor;
 
-     if (i == image_no)
+     if (i == image_no && 1)
      {
-        if (y > outh/2)
-          y_offset_thumb += DIVISOR * 4;
-        //else if (y < 0)
-        //  y_offset_thumb -= 10;
-        int h2 = h+2;
-
-        if (y-1 + h2 >= outh)
-          h2=outh-y-1;
         fill_rect(rgba + (outw * (y-1) + (x-1)) * 4,
-                  outw/DIVISOR+2, h2, outw * 4,
+                  image_w * factor + 2, image_h * factor / aspect + 2,
+                  outw * 4,
                   255,0,0);
      }
 
      resample_image (image, image_w, image_h,
                      rgba + (outw * y + x) * 4,
-                     outw/DIVISOR, h, outw * 4,
+                     image_w * factor, image_h * factor,
+                     outw * 4,
                      0, 0, 1.0/factor, aspect, 0,
                      linear);
     }
-    else
-    {
-    }
-
-
-     x += outw/DIVISOR * 1.1;
-     if (x + outw/DIVISOR * 1.1 > outw)
-     {
-        x = 10;
-        y += outw/DIVISOR * 1.1 / aspect;
-     }
   }
   }
 
@@ -1657,9 +1632,10 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
   {
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
-    int fb_fd = open ("/dev/fb0", O_RDWR);
+    int fb_fd;
 
-    ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
+    fb_fd = open ("/dev/fb0", O_RDWR);
+
     ioctl (fb_fd, FBIOGET_VSCREENINFO, &vinfo);
 
     if (!(set_w || set_h))
@@ -1667,6 +1643,13 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       *dw = vinfo.xres;
       *dh = vinfo.yres;
     }
+   
+    if (tfb->fb_bpp != 1){
+      close (fb_fd);
+      return TV_FB;
+    } 
+
+    ioctl (fb_fd, FBIOGET_FSCREENINFO, &finfo);
 
     tfb->fb_bpp = vinfo.bits_per_pixel;
     if (tfb->fb_bpp == 16)
@@ -1704,6 +1687,14 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
 
     tfb->fb_stride = finfo.line_length;
     tfb->fb_mapped_size = finfo.smem_len;
+
+#if 0
+    {
+    int tty_fd = open("/dev/tty0", O_RDWR);
+    ioctl (tty_fd, KDSETMODE, KD_GRAPHICS);
+    close (tty_fd);
+    }
+#endif
 
     close (fb_fd);
 
