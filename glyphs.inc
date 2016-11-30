@@ -345,6 +345,57 @@ static UnicodeGlyph glyphs[]={{
 0011\
 0000, GLYPH_MONOSPACED},{
 
+
+"╿", 0b\
+0110\
+0110\
+0100\
+0100, GLYPH_MONOSPACED},{
+
+"╽", 0b\
+0100\
+0100\
+0110\
+0110, GLYPH_MONOSPACED},{
+
+"╾", 0b\
+0000\
+1111\
+1100\
+0000, GLYPH_MONOSPACED},{
+
+"╼", 0b\
+0000\
+1111\
+0011\
+0000, GLYPH_MONOSPACED},{
+
+
+"╿", 0b\
+0110\
+0110\
+0010\
+0010, GLYPH_MONOSPACED},{
+
+"╽", 0b\
+0010\
+0010\
+0110\
+0110, GLYPH_MONOSPACED},{
+
+"╾", 0b\
+0000\
+1100\
+1111\
+0000, GLYPH_MONOSPACED},{
+
+"╼", 0b\
+0000\
+0011\
+1111\
+0000, GLYPH_MONOSPACED},{
+
+
 "▕", 0b\
 0001\
 0001\
