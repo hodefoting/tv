@@ -396,7 +396,7 @@ void blit_sixel_pal (unsigned int        *pal,
      sixel_nl ();
      y += 6;
 
-     if (stdin_got_data(1))
+     if ( ((y/6)%10 == 0) && stdin_got_data(1))
      {
        sixel_end ();
        return;
@@ -608,7 +608,12 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           /* quantization used for approximate matches */
           uint32_t mask = 0xf8f8f8f8;
 
-          for (int y = 0; y < outh-GLYPH_HEIGHT && !stdin_got_data(1); y+= GLYPH_HEIGHT)
+          for (int y = 0; y < outh-GLYPH_HEIGHT 
+                          && !( ((y/GLYPH_HEIGHT) % 10 == 0) &&
+                                tfb->interactive == 0 || stdin_got_data (1)
+            )
+                          
+                          ; y+= GLYPH_HEIGHT)
           {
             curfg = -1;
             curbg = -1;
