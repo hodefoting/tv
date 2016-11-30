@@ -396,7 +396,7 @@ void blit_sixel_pal (unsigned int        *pal,
      sixel_nl ();
      y += 6;
 
-     if ( ((y/6)%10 == 0) && stdin_got_data(1))
+     if ( ((y/6)%30 == 0) && stdin_got_data(1))
      {
        sixel_end ();
        return;
