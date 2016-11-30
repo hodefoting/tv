@@ -1,7 +1,7 @@
 
 #define GLYPH_WIDTH   4
 #define GLYPH_HEIGHT  4
-#define GLYPH_ASPECT  2.1
+#define GLYPH_ASPECT  1.9
 
 #define GLYPH_DEFAULTS   1
 #define GLYPH_MONOSPACED 1
