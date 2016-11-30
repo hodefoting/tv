@@ -523,8 +523,7 @@ void set_fg(Tfb *tfb, int red, int green, int blue)
     if (g > 5) g = 5;
     if (b > 5) b = 5;
 
-#define FOO 1/40
-    if ((red * FOO) == (green * FOO) && (green * FOO) == (blue * FOO))
+    if (((int)(r/1.66)== (int)(g/1.66)) && ((int)(g/1.66) == ((int)(b/1.66))))
     {
       sixel_outf("[48;5;%im", 16 + 216 + gray);
     }
@@ -554,7 +553,7 @@ void set_bg(Tfb *tfb, int red, int green, int blue)
     if (g > 5) g = 5;
     if (b > 5) b = 5;
 
-    if ((red * FOO) == (green * FOO) && (green * FOO) == (blue * FOO))
+    if (((int)(r/1.66)== (int)(g/1.66)) && ((int)(g/1.66) == ((int)(b/1.66))))
     {
       sixel_outf("[38;5;%im", 16 + 216 + gray);
     }

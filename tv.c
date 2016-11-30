@@ -72,6 +72,7 @@ int rotate = 0;
 #define JUMPLEN              0.50
 #define JUMPSMALLLEN         0.05
 
+/* more images than this - and we give up.. */
 char *images[40960]={0,};
 const char *pdf_path = NULL;
 int images_c = 0;
@@ -1372,7 +1373,7 @@ void redraw()
 
            if (graydiff < 2000) /* force to gray, and separate dither */
            {
-             int val = rgba[i+1] + (mask_a(x/1.66, y/1.66, 0) - 0.5) * 255.0 / 14;
+             int val = rgba[i+1] + (mask_a(x/1.66, y/1.66, 0) - 0.5) * 255.0 / 17;
 
              if (val > 255) val = 255;
              if (val < 0) val = 0;
@@ -1484,6 +1485,17 @@ main (int argc, char **argv)
 
   time_remaining = delay;   /* do this initialization after
                                argument parsing has settled down */
+
+  if (tfb.interactive)
+  {
+    zero_origin = 1;
+    _nc_raw();
+  }
+
+  message = strdup ("press ? or h for help");
+  message_ttl = 2;
+
+
   images[images_c] = NULL;
 
   if (images_c <= 0)
@@ -1526,19 +1538,9 @@ main (int argc, char **argv)
     }
 
 
-  if (tfb.interactive)
-  {
-    zero_origin = 1;
-    _nc_raw();
-  }
-
-  message = strdup ("press ? or h for help");
-  message_ttl = 2;
-
   for (image_no = 0; image_no < images_c; image_no++)
   {
     interactive_load_image:
-    interactive_again:
     if (0){}
 
     if (!image 
@@ -1584,7 +1586,6 @@ main (int argc, char **argv)
       }
     }
 
-
     redraw ();
 
     if (tfb.interactive)
@@ -1595,7 +1596,7 @@ main (int argc, char **argv)
         {
           case REQUIT:  printf ("."); exit(0); break;
           case REDRAW: 
-          case RELOAD:  goto interactive_again;
+          case RELOAD:  goto interactive_load_image;
           case REEVENT: goto ev_again;
           case RENONE:
           case REIDLE:
