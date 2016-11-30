@@ -16,13 +16,31 @@
 #include <assert.h>
 #include "tv.h"
 
+#if 0
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
-  int a = (col1 & 0xff) - (col2 & 0xff);
-  int b = ((col1>>8) & 0xff) - ((col2>>8) & 0xff);
-  int c = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
-  return a * a + b * b + c * c;
+  long sum = 0;
+  int v = (col1 & 0xff) - (col2 & 0xff);
+  sum += v*v;
+  v = ((col1>>8) & 0xff) - ((col2>>8) & 0xff);
+  sum += v*v;
+  v = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
+  sum += v*v;
+  return sum;
 }
+#else
+static inline long coldiff(uint32_t col1, uint32_t col2)
+{
+  long sum = 0;
+  int v = (col1 & 0xff) - (col2 & 0xff);
+  sum += v*v;
+  v = ((col1) & 0xff00) - ((col2) & 0xff00);
+  sum += v*v;
+  v = ((col1) & 0xff0000) - ((col2) & 0xff0000);
+  sum += v*v;
+  return sum;
+}
+#endif
 
 #include "glyphs.inc"
 
@@ -683,6 +701,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                 int rmatches = 0;
                 int bitno = 0;
 
+
                 if (tfb->bw && !(glyphs[i].flags & GLYPH_MONOSPACED))
                         continue;
 
@@ -692,13 +711,24 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   for (int u = GLYPH_WIDTH-1; u >=0; u --)
                   {
                     uint32_t col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
-                    long d1 = coldiff(col, maxc);
-                    long d2 = coldiff(col, secondmaxc);
                     int col1 = 0;
                     int col2 = 0;
 
-                    if (d1 < d2) col1 = 1;
-                    else col2 = 1;
+                    if (col == maxc)
+                    {
+                      col1 = 1;
+                    } else if (col == secondmaxc)
+                    {
+                      col2 = 1;
+                    }
+                    else
+                    {
+                      long d1 = coldiff(col, maxc);
+                      long d2 = coldiff(col, secondmaxc);
+                      if (d1 < d2) col1 = 1;
+                      else col2 = 1;
+                    }
+
 
                     if (col1)
                     {
