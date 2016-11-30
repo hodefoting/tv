@@ -506,7 +506,6 @@ void set_fg(Tfb *tfb, int red, int green, int blue)
   if (lc == curfg)
     return;
   curfg=lc;
-
   if (tfb->term256 == 0)
   {
     sixel_outf("[48;2;%i;%i;%im", red,green,blue);
@@ -609,7 +608,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           /* quantization used for approximate matches */
           uint32_t mask = 0xf8f8f8f8;
 
-          for (int y = 0; y < outh-GLYPH_HEIGHT; y+= GLYPH_HEIGHT)
+          for (int y = 0; y < outh-GLYPH_HEIGHT && !stdin_got_data(1); y+= GLYPH_HEIGHT)
           {
             curfg = -1;
             curbg = -1;
