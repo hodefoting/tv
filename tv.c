@@ -21,10 +21,14 @@
 #include <ftw.h>
 #include "tv.h"
 
+// #define ENABLE_THUMBS 1
+
 float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
+#ifdef ENABLE_THUMBS
 float          y_offset_thumb = 0.0;
+#endif
 int            slideshow      = 0;
 float          delay          = 4.0;
 float          time_remaining = 0.0;
@@ -38,7 +42,9 @@ const char    *path           = NULL;
 const char    *output_path    = NULL;
 int            pdf            = 0;
 int            zero_origin    = 0;
+#ifdef ENABLE_THUMBS
 int            thumbs         = 0;
+#endif
 int            linear         = 1;
 int            set_w          = 0;
 int            set_h          = 0;
@@ -213,9 +219,11 @@ EvReaction cmd_help (void)
 
 EvReaction cmd_up (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
     y_offset_thumb -= (desired_height * JUMPLEN) ;
   else
+#endif
     y_offset -= (desired_height * JUMPLEN) * factor;
 #if 0
   if (y_offset < 0)
@@ -226,9 +234,11 @@ EvReaction cmd_up (void)
 
 EvReaction cmd_down (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
     y_offset_thumb += (desired_height * JUMPLEN) ;
   else
+#endif
     y_offset += (desired_height * JUMPLEN) * factor;
   return REDRAW;
 }
@@ -422,11 +432,14 @@ EvReaction cmd_slideshow (void)
   return REDRAW;
 }
 
+
+#ifdef ENABLE_THUMBS
 EvReaction cmd_thumbs (void)
 {
   thumbs = !thumbs;
   return REDRAW;
 }
+#endif
 
 EvReaction cmd_verbosity (void)
 {
@@ -441,11 +454,13 @@ EvReaction cmd_verbosity (void)
 
 EvReaction cmd_zoom_in_small (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
   {
     DIVISOR -= 1.0;
     return REDRAW;
   }
+#endif
 
   if (x_offset == 0.0 && y_offset == 0.0)
   {
@@ -467,11 +482,13 @@ EvReaction cmd_zoom_in_small (void)
 
 EvReaction cmd_zoom_out_small (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
   {
     DIVISOR += 1.0;
     return REDRAW;
   }
+#endif
 
 
   x_offset += desired_width * 0.5 * factor ;
@@ -486,11 +503,13 @@ EvReaction cmd_zoom_out_small (void)
 
 EvReaction cmd_zoom_in (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
   {
     DIVISOR -= 1.0;
     return REDRAW;
   }
+#endif
 
   if (x_offset == 0.0 && y_offset == 0.0)
   {
@@ -512,11 +531,13 @@ EvReaction cmd_zoom_in (void)
 
 EvReaction cmd_zoom_out (void)
 {
+#ifdef ENABLE_THUMBS
   if (thumbs)
   {
     DIVISOR += 1.0;
     return REDRAW;
   }
+#endif
   x_offset += desired_width * 0.5 * factor ;
   y_offset += desired_height * 0.5 * factor ;
 
@@ -647,8 +668,10 @@ Action actions[] = {
   {"d",        cmd_do_dither},
   {"g",        cmd_grayscale},
   {"s",        cmd_slideshow},
+#ifdef ENABLE_THUMBS
   {"t",        cmd_thumbs},
   {"\t",       cmd_thumbs},
+#endif
   {"v",        cmd_verbosity},
   {"f",        cmd_zoom_fit},
   {"F",        cmd_zoom_fill},
@@ -835,10 +858,12 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     {
       tfb->do_dither = 1;
     }
+#ifdef ENABLE_THUMBS
     else if (!strcmp (argv[x], "-t"))
     {
       cmd_thumbs ();
     }
+#endif
     else if (!strcmp (argv[x], "-d"))
     {
       if (!argv[x+1])
@@ -1184,7 +1209,55 @@ void redraw()
                
   unsigned char *rgba = calloc (outw * 4 * outh, 1);
 
-  if(!thumbs && image)
+#ifdef ENABLE_THUMBS
+  if (thumbs)
+  {
+    y_offset_thumb = ((image_no / (int)(DIVISOR ))) * outw/(DIVISOR) / aspect - outh / 3;
+
+  for (int i = image_no - 10 > 0 ? image_no - 10 : 0
+       ; i < images_c && images[i] && i < image_no + 64; i ++)
+  {
+    int x = ((i % (int)(DIVISOR ))+0.10) * outw/(DIVISOR);
+    int y = ((i / (int)(DIVISOR ))+0.10) * outw/(DIVISOR) / aspect -
+              y_offset_thumb;
+
+    if (y >= outh)
+          //  - (outw/DIVISOR)*aspect)
+      continue;
+
+    char thumb_path[4096];
+    make_thumb_path (images[i], thumb_path);
+    int image_w, image_h;
+
+    uint8_t *image = 
+            is_file (thumb_path) ?
+            image_cached (thumb_path, &image_w, &image_h) : NULL;
+
+    if (image)
+    {
+     float factor = (1.0 * outw/(DIVISOR + 2) ) / image_w;
+     int h = image_h * factor;
+
+     if (i == image_no && 1)
+     {
+        fill_rect(rgba + (outw * (y-1) + (x-1)) * 4,
+                  image_w * factor + 2, image_h * factor / aspect + 2,
+                  outw * 4,
+                  255,0,0);
+     }
+
+     resample_image (image, image_w, image_h,
+                     rgba + (outw * y + x) * 4,
+                     image_w * factor, image_h * factor,
+                     outw * 4,
+                     0, 0, 1.0/factor, aspect, 0,
+                     linear);
+    }
+  }
+  }
+  else
+#endif
+  if(image)
   {
     resample_image (image, 
                     image_w,
@@ -1260,48 +1333,6 @@ void redraw()
     exit(0);
   }
 
-  if (thumbs)
-  {
-    y_offset_thumb = ((image_no / (int)(DIVISOR ))) * outw/(DIVISOR) / aspect - outh / 3;
-    //y_offset_thumb = outh / 3;
-
-  for (int i = image_no - 10 > 0 ? image_no - 10 : 0
-       ; i < images_c && images[i] && i < image_no+10; i ++)
-  {
-    int x = ((i % (int)(DIVISOR ))+0.20) * outw/(DIVISOR);
-    int y = ((i / (int)(DIVISOR ))+0.20) * outw/(DIVISOR) / aspect -
-              y_offset_thumb;
-
-    char thumb_path[4096];
-    make_thumb_path (images[i], thumb_path);
-    int image_w, image_h;
-
-    uint8_t *image = 
-            is_file (thumb_path) ?
-            image_cached (thumb_path, &image_w, &image_h) : NULL;
-
-    if (image)
-    {
-     float factor = (1.0 * outw/(DIVISOR + 1) ) / image_w;
-     int h = image_h * factor;
-
-     if (i == image_no && 1)
-     {
-        fill_rect(rgba + (outw * (y-1) + (x-1)) * 4,
-                  image_w * factor + 2, image_h * factor / aspect + 2,
-                  outw * 4,
-                  255,0,0);
-     }
-
-     resample_image (image, image_w, image_h,
-                     rgba + (outw * y + x) * 4,
-                     image_w * factor, image_h * factor,
-                     outw * 4,
-                     0, 0, 1.0/factor, aspect, 0,
-                     linear);
-    }
-  }
-  }
 
      if (tfb.bw && tfb.do_dither)
      {
@@ -1365,8 +1396,15 @@ void redraw()
 
   paint_rgba (&tfb, rgba, outw, outh);
 
-  if (image && !thumbs)
+  if (image 
+#ifdef ENABLE_THUMBS
+                  && !thumbs
+#endif
+                  )
+
+#ifdef ENABLE_THUMBS
   gen_thumb(path, image, image_w, image_h);
+#endif
 
   free (rgba);
 }
@@ -1497,7 +1535,11 @@ main (int argc, char **argv)
     interactive_again:
     if (0){}
 
-    if (!image && !thumbs)
+    if (!image 
+#ifdef ENABLE_THUMBS
+                    && !thumbs
+#endif
+                    )
     {
       if (pdf)
         path = prepare_pdf_page (pdf_path, image_no+1);

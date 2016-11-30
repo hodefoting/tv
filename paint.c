@@ -16,7 +16,7 @@
 #include <assert.h>
 #include "tv.h"
 
-#if 0
+#if 1
 static inline long coldiff(uint32_t col1, uint32_t col2)
 {
   long sum = 0;
