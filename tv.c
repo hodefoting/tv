@@ -1291,8 +1291,54 @@ void redraw()
   free (rgba);
 }
 
+
+int ensure_image()
+{
+    if (!image)
+    {
+      if (pdf)
+        path = prepare_pdf_page (pdf_path, image_no+1);
+      else
+        path = images[image_no];
+
+      if (image)
+        free (image);
+      image = NULL;
+      image = image_load (path, &image_w, &image_h);
+      if (!image)
+      {
+        cmd_next ();
+        return -1;
+//        goto interactive_load_image;
+      }
+  
+      if (isatty (STDOUT_FILENO))
+      tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
+
+      if (factor < 0)
+      {
+        switch (zoom_mode)
+        {
+          case TV_ZOOM_FILL:
+            cmd_zoom_fill ();
+            break;
+          case TV_ZOOM_FIT:
+            cmd_zoom_fit ();
+            break;
+        }
+        if (pdf)
+        {
+          x_offset = 0.0;
+          y_offset = 0.0;
+        }
+      }
+    }
+  return 0;
+}
+
 static long spider_count = 0;
 static long img_count = 0;
+static int drawn = 0;
 
 static int ftw_cb (const char *path, const struct stat *info, const int typeflag)
 {
@@ -1316,6 +1362,13 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
 #define SKIP 100
   if ( (spider_count % SKIP) == 0)
   {
+    if (img_count && !drawn)
+    {
+      ensure_image ();
+      redraw ();
+      drawn = 1;
+    }
+
     switch ( (spider_count / SKIP) % 4  )
     {
       case 0: fprintf (stdout, "\r- %li images of %li files", img_count, spider_count); break;
@@ -1367,10 +1420,6 @@ main (int argc, char **argv)
     _nc_raw();
   }
 
-  message = strdup ("press ? or h for help");
-  message_ttl = 2;
-
-
   images[images_c] = NULL;
 
   if (images_c <= 0)
@@ -1378,10 +1427,9 @@ main (int argc, char **argv)
       /* no arguments, launch the image viewer */
       /*usage ();*/
 
-      ftw ("/home", ftw_cb, 40);
+      //ftw ("/home", ftw_cb, 40);
       //ftw ("/media", ftw_cb, 40);
-      //ftw ("/usr/share/wallpapers", ftw_cb, 40);
-              fprintf (stderr, "%li paths examined\n", spider_count);
+      ftw ("/usr/share/wallpapers", ftw_cb, 40);
       verbosity = -1;
       slideshow = 1;
       delay = 7;
@@ -1418,44 +1466,8 @@ main (int argc, char **argv)
     interactive_load_image:
     if (0){}
 
-    if (!image)
-    {
-      if (pdf)
-        path = prepare_pdf_page (pdf_path, image_no+1);
-      else
-        path = images[image_no];
-
-      if (image)
-        free (image);
-      image = NULL;
-      image = image_load (path, &image_w, &image_h);
-      if (!image)
-      {
-        cmd_next ();
-        goto interactive_load_image;
-      }
-  
-      if (isatty (STDOUT_FILENO))
-      tfb.tv_mode = init (&tfb, &desired_width, &desired_height);
-
-      if (factor < 0)
-      {
-        switch (zoom_mode)
-        {
-          case TV_ZOOM_FILL:
-            cmd_zoom_fill ();
-            break;
-          case TV_ZOOM_FIT:
-            cmd_zoom_fit ();
-            break;
-        }
-        if (pdf)
-        {
-          x_offset = 0.0;
-          y_offset = 0.0;
-        }
-      }
-    }
+    if (ensure_image())
+      goto interactive_load_image;
 
     redraw ();
 
