@@ -173,6 +173,31 @@ static UnicodeGlyph glyphs[]={{
 0010\
 0010, GLYPH_MONOSPACED},{
 
+
+"╴",0b\
+0000\
+0000\
+1100\
+0000, GLYPH_MONOSPACED},{
+
+"╶",0b\
+0000\
+0000\
+0011\
+0000, GLYPH_MONOSPACED},{
+        
+"╵",0b\
+0100\
+0100\
+0000\
+0000, GLYPH_MONOSPACED},{
+        
+"╷",0b\
+0000\
+0000\
+0100\
+0100, GLYPH_MONOSPACED},{
+
 "▪", 0b\
 0000\
 0110\
@@ -272,19 +297,6 @@ static UnicodeGlyph glyphs[]={{
 0110, GLYPH_MONOSPACED},{
 
 
-"+", 0b\
-0100\
-1110\
-0100\
-0000},{
-
-"=", 0b\
-1110\
-0000\
-1110\
-0000},{
-
-
 "⎻", 0b\
 0000\
 1111\
@@ -328,7 +340,7 @@ static UnicodeGlyph glyphs[]={{
 1111\
 0000},{
 
-#if 1
+#if 0
 "<", 0b\
 0011\
 1100\
@@ -417,6 +429,19 @@ static UnicodeGlyph glyphs[]={{
 0010\
 0000\
 0010},{
+
+
+"+", 0b\
+0100\
+1110\
+0100\
+0000},{
+
+"=", 0b\
+1110\
+0000\
+1110\
+0000},{
 
 #endif
 
