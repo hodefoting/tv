@@ -57,19 +57,18 @@ enum {
   TV_ZOOM_WIDTH
 };
 
-int zoom_mode = TV_ZOOM_FIT;
-
-float aspect = 1.0;
-int rotate = 0;
+int   zoom_mode = TV_ZOOM_FIT;
+float aspect    = 1.0;
+int   rotate    = 0;
 
 #define SKIP_FULL_BLANK_ROWS 1
 #define JUMPLEN              0.50
 #define JUMPSMALLLEN         0.05
 
 /* more images than this - and we give up.. */
-char *images[40960]={0,};
+char       *images[40960]={0,};
 const char *pdf_path = NULL;
-int images_c = 0;
+int         images_c = 0;
 
 #include <sys/ioctl.h>
 
@@ -96,7 +95,6 @@ void usage ()
   printf ("usage: tv [--help] [-s <widthxheight> -m <mode> [images] -o outputfile\n");
   printf ("options:\n");
   printf ("  --help  print this help\n");
-
   printf ("  -s <widthxheight>\n");
   printf ("     the dimension is in pixels for sixel modes, and thumbnails creation\n");
   printf ("     and in character cells for ascii/utf8 modes\n");
@@ -108,8 +106,6 @@ void usage ()
   w - width (and at top)
   XXX: todo if width or height is specified as -1 - do proportional scaling
 #endif
-
-
   printf ("  -m <mode>  specify no or invalid mode to get a list of valid modes\n");
   printf ("  -r shuffle images for slideshow\n");
   //printf ("  -v      be verbose\n");
@@ -728,7 +724,7 @@ void print_status (void)
   }\
 
     CLEAR
-#if 0
+#if 1
   printf ("v:%d:%d ", tfb.tv_mode, sixel_is_supported());
 #endif
 
@@ -923,6 +919,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
       {
         tfb->tv_mode = TV_SIXEL;
         tfb->palcount = 16;
+        tfb->do_dither = 1;
       }
       else if (!strcmp (argv[x+1], "sixel-16-gray"))
       {

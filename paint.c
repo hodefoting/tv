@@ -18,10 +18,16 @@
 
 #include "glyphs.inc"
 
+static char outbuf[1024*1024];
+static int outpos = 0;
 
 void sixel_out_char (int ch)
 {
-  printf( "%c", ch);
+  if (outpos < 1024*1024)
+  {
+    outbuf[outpos++] = ch;
+    outbuf[outpos] = 0;
+  }
 }
 
 void sixel_out_str (const char *str)
@@ -41,7 +47,7 @@ void sixel_out_str (const char *str)
 int current = -1;
 int count = 0;
 
-void sixel_flush (void)
+void sixel_run_length_flush (void)
 {
   if (count == 0)
   {
@@ -50,7 +56,7 @@ void sixel_flush (void)
   }
   while (count > 255) /* vt240 repeat count limit */
   {
-    fprintf( stdout,"!%d%c", 255, current + '?');
+    sixel_outf ("!%d%c", 255, current + '?');
     count -= 255;
   }
   switch (count)
@@ -60,7 +66,7 @@ void sixel_flush (void)
     case 1: sixel_out_char (current + '?');
     break;
     default:
-      printf( "!%d%c", count, current + '?'); // XXX: port to out..
+      sixel_outf ( "!%d%c", count, current + '?'); // XXX: port to out..
     break;
   }
   current = -1;
@@ -74,7 +80,7 @@ void sixel_out (int sixel)
   else
   {
     if (current != -1)
-      sixel_flush ();
+      sixel_run_length_flush ();
     current = sixel;
     count = 1;
   }
@@ -82,13 +88,13 @@ void sixel_out (int sixel)
 
 void sixel_nl ()
 {
-  sixel_flush ();
+  sixel_run_length_flush ();
   sixel_out_char ('-');
 }
 
 void sixel_cr ()
 {
-  sixel_flush ();
+  sixel_run_length_flush ();
   sixel_out_char ('$');
 }
 
@@ -146,7 +152,7 @@ typedef struct PalInfo {
 PalInfo infos[]={
  {8, 11, 2, 2, 2},
  {12, 15, 2, 3, 2},
- {16, 22, 4, 2},
+ {16, 22, 4, 2, 2},
  {24, 31, 3, 4, 2},
  {32, 63, 3, 3, 3},
  {64, 124, 4, 4, 4},
@@ -386,6 +392,7 @@ void blit_sixel_pal (unsigned int        *pal,
      if ( ((y/6)%30 == 0) && stdin_got_data(1))
      {
        sixel_end ();
+
        return;
      }
   }
@@ -873,8 +880,8 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
     case TV_SIXEL_HI:
     case TV_SIXEL:
       {
-  unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
-  dither_rgba (tfb, rgba, pal, outw * 4, outw, outh, tfb->grayscale, tfb->palcount, 0);
+        unsigned int *pal = calloc (outw * 4 * outh * sizeof (int), 1);
+        dither_rgba (tfb, rgba, pal, outw * 4, outw, outh, tfb->grayscale, tfb->palcount, 0);
   if (!stdin_got_data (1))
   blit_sixel_pal (pal, outw * 4, 0, 0, outw, outh, tfb->grayscale, tfb->palcount, 0
               );
@@ -885,6 +892,11 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
       fprintf (stderr, "uh? %i", __LINE__);
       break;
   }
+
+  printf ("%s", outbuf);
+  fflush (NULL);
+  outpos = 0;
+  outbuf[outpos] = 0;
 }
 
 static void term_get_xy (int* x, int *y)
@@ -918,20 +930,30 @@ int sixel_is_supported (void)
   int xb, yb;
   if (inited == -22)
   {
-   fflush(NULL);
+   fflush(stdout);
    term_get_xy (&ox, &oy);
    printf ("[1;1H");
    printf ("\r");
-   fflush(NULL);
+   fflush(stdout);
    term_get_xy (&x, &y);
+
+   outpos = 0;
+   outbuf[outpos] = 0;
+
    sixel_start ();
    sixel_outf ("#1---ab7878------a7878---A-");
    sixel_end ();
+
+   printf ("%s", outbuf);
+   outpos = 0;
+   outbuf[outpos] = 0;
+
    printf ("\r");
-   fflush(NULL);
+   fflush(stdout);
    term_get_xy (&xb, &yb);
    printf ( "[%d;%dH", oy, ox);
    inited = (y != yb);
+   fflush(stdout);
   }
   return inited;
 }

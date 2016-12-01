@@ -5,7 +5,7 @@
 #include <omp.h>
 #endif
 
-typedef enum {TV_AUTO,
+typedef enum {TV_AUTO = 0,
               TV_ASCII,
               TV_SIXEL,
               TV_SIXEL_HI,
