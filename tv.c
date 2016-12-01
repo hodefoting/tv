@@ -111,6 +111,7 @@ void usage ()
 
 
   printf ("  -m <mode>  specify no or invalid mode to get a list of valid modes\n");
+  printf ("  -r shuffle images for slideshow\n");
   //printf ("  -v      be verbose\n");
   //printf ("  -i      interactive interface; use cursors keys, space/backspace etc.\n");
   printf ("  -d <delay>  set slideshow mode\n");
@@ -571,6 +572,23 @@ void reset_controls (void)
   factor = -1;
 }
 
+static int rand_shuf (const void *a, const void *b)
+{
+  return (rand() % 50) - 25;
+}
+
+EvReaction cmd_shuffle (void)
+{
+  drop_image ();
+  image_no = 0;
+
+  srand(time(NULL));
+  qsort (images, images_c, sizeof (void*), rand_shuf);
+
+  reset_controls ();
+  return RELOAD;
+}
+
 EvReaction cmd_next (void)
 {
   drop_image ();
@@ -632,7 +650,7 @@ Action actions[] = {
   {"P",        cmd_pal_down},
   {"q",        cmd_quit},
   {"b",        cmd_bw},
-  {"r",        cmd_rotate},
+  {"r",        cmd_shuffle},
   {"?",        cmd_help},
   {"j",        cmd_jump},
   {"x",        cmd_set_zoom},
@@ -697,7 +715,7 @@ const char *prepare_pdf_page (const char *path, int page_no)
   char command[4096];
   sprintf (command, "gs -sDEVICE=pnggray -sOutputFile=/tmp/sxv-pdf.png -dFirstPage=%d -dLastPage=%d -dBATCH -dNOPAUSE -r200 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 %s 2>&1 > /dev/null", page_no, page_no, path);
   system (command);
-  return "/tmp/sxv-pdf.png";
+  return "/tmp/tv-pdf.png";
 }
 
 void print_status (void)
@@ -794,6 +812,8 @@ void add_path (Tfb *tfb, char *path)
   if (p != path)
     free (p);
 }
+
+int do_shuffle = 0;
 
 void parse_args (Tfb *tfb, int argc, char **argv)
 {
@@ -994,7 +1014,10 @@ void parse_args (Tfb *tfb, int argc, char **argv)
         set_h = 256;
       }
     }
-
+    else if (!strcmp (argv[x], "-r"))
+    {
+      do_shuffle = 1;
+    }
     else if (!strcmp (argv[x], "-s"))
     {
       char *str = argv[++x];
@@ -1404,9 +1427,15 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
       /* first image is splash - making startup even for full system
          spidered slideshow be instant 
        */
-      ensure_image ();
-      redraw ();
-      drawn = 1;
+      if (!do_shuffle) // XXX: there might be a better way of
+                       //      getting a random of the first
+                       //      set, then reshuffle all but first
+                       //      image afterwards..
+      {
+        ensure_image ();
+        redraw ();
+        drawn = 1;
+      }
     }
 
     if(0)switch ( (spider_count / SKIP) % 4  )
@@ -1467,8 +1496,6 @@ main (int argc, char **argv)
       if (getenv ("HOME"))
         add_path (&tfb, getenv ("HOME"));
       add_path (&tfb, "/media");
-
-    //  verbosity = -1;
       slideshow = 1;
     }
   if (images_c <= 0)
@@ -1476,6 +1503,10 @@ main (int argc, char **argv)
       add_path (&tfb, "/usr/share");
     }
 
+  if (do_shuffle)
+    cmd_shuffle ();
+
+  /* if the first image is a pdf - do pdf mode instead  */
   if (strstr (images[0], ".pdf") ||
       strstr (images[0], ".PDF"))
     {
@@ -1511,7 +1542,6 @@ main (int argc, char **argv)
       goto interactive_load_image;
 
     redraw ();
-
     if (tfb.interactive)
     {
       ev_again:
@@ -1727,6 +1757,12 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
         tfb->term256 = 1;
         tfb->do_dither = 1;
       }
+    if (getenv("COLORTERM") &&
+        !strcmp(getenv("COLORTERM"), "truecolor"))
+    {
+       tfb->term256 = 0;
+       tfb->do_dither = 0;
+    }
 
 
     return TV_UTF8;
