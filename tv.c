@@ -767,7 +767,7 @@ void print_status (void)
   }
 }
 
-void add_image (Tfb *tfb, char *path)
+void add_image (Tfb *tfb, const char *path)
 {
   images[images_c++] = strdup (path);
   images[images_c] = NULL;
@@ -1389,17 +1389,16 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
       strstr (path, ".JPEG") ||
       strstr (path, ".JPG")))
   {
-    images[images_c++]=strdup(path);
-    images[images_c]=0;
+    add_image (&tfb, path);
     img_count ++;
   }
   spider_count ++;
 #if 1
 
-#define SKIP 100
+#define SKIP 30
   if ( (spider_count % SKIP) == 0)
   {
-    if (img_count && !drawn)
+    if (images_c && !drawn)
     {
       /* first image is splash - making startup even for full system
          spidered slideshow be instant 

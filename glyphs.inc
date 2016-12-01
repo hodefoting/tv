@@ -29,17 +29,13 @@ static UnicodeGlyph glyphs[]={{
 0000\
 0000, GLYPH_MONOSPACED},{
 
-"⎢", 0b\
-0100\
-0100\
-0100\
-0100, GLYPH_MONOSPACED},{
+"▄", 0b\
+0000\
+0000\
+1111\
+1111, GLYPH_MONOSPACED},{
 
-"⎥", 0b\
-0010\
-0010\
-0010\
-0010, GLYPH_MONOSPACED},{
+#if 1
 
 "▘", 0b\
 1100\
@@ -60,6 +56,12 @@ static UnicodeGlyph glyphs[]={{
 1100\
 1100, GLYPH_MONOSPACED},{
 
+"▗", 0b\
+0000\
+0000\
+0011\
+0011, GLYPH_MONOSPACED},{
+
 "▌", 0b\
 1100\
 1100\
@@ -73,25 +75,26 @@ static UnicodeGlyph glyphs[]={{
 1100, GLYPH_MONOSPACED},{
         
         
-"▗", 0b\
-0000\
-0000\
-0011\
-0011, GLYPH_MONOSPACED},{
-        
-        
-
-"▄", 0b\
-0000\
-0000\
-1111\
-1111, GLYPH_MONOSPACED},{
         
 "▊", 0b\
 1110\
 1110\
 1110\
 1110, GLYPH_MONOSPACED},{
+
+
+"⎢", 0b\
+0100\
+0100\
+0100\
+0100, GLYPH_MONOSPACED},{
+
+"⎥", 0b\
+0010\
+0010\
+0010\
+0010, GLYPH_MONOSPACED},{
+
         
 "█", 0b\
 1111\
@@ -290,7 +293,6 @@ static UnicodeGlyph glyphs[]={{
 0100\
 0100, GLYPH_MONOSPACED},{
 
-
 "┿", 0b\
 0100\
 1111\
@@ -425,6 +427,7 @@ static UnicodeGlyph glyphs[]={{
 0000\
 0000},{
 
+#endif
 
 #if 0
         // missing in mlterm... FOO
@@ -464,6 +467,7 @@ static UnicodeGlyph glyphs[]={{
 
 #endif
 
+#if 1
 "/", 0b\
 0001\
 0010\
@@ -487,6 +491,8 @@ static UnicodeGlyph glyphs[]={{
 0000\
 1111\
 0000},{
+
+#endif
 
 #if 0 
    // negatives of other glyphs - swap fg/bg to get similar shape
@@ -538,7 +544,7 @@ static UnicodeGlyph glyphs[]={{
 
 #endif
 
-#if 0
+#if 1
 "<", 0b\
 0011\
 1100\

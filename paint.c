@@ -606,7 +606,9 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           if (tfb->interactive)
             term_home ();
           /* quantization used for approximate matches */
-          uint32_t mask = 0xf8f8f8f8;
+          uint32_t mask = 0xe0e0e0e0;
+
+#define mask_eq(a,b)  (((a)&mask)==((b)&mask))
 
           for (int y = 0; y < outh-GLYPH_HEIGHT 
                           && !( ((y/GLYPH_HEIGHT) % 10 == 0) &&
@@ -717,7 +719,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 
 
                 if (tfb->bw && !(glyphs[i].flags & GLYPH_MONOSPACED))
-                        continue;
+                  continue;
 
                 for (int v = GLYPH_HEIGHT-1; v >=0; v --)
                 {
@@ -725,37 +727,19 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   for (int u = GLYPH_WIDTH-1; u >=0; u --)
                   {
                     uint32_t col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
-                    int col1 = 0;
-                    int col2 = 0;
-
-                    if (col == maxc)
-                    {
-                      col1 = 1;
-                    } else if (col == secondmaxc)
-                    {
-                      col2 = 1;
-                    }
-                    else
-                    {
-                      long d1 = coldiff(col, maxc);
-                      long d2 = coldiff(col, secondmaxc);
-                      if (d1 < d2) col1 = 1;
-                      else col2 = 1;
-                    }
-
-
-                    if (col1)
+                    if (mask_eq(col, maxc)) 
                     {
                       if (glyphs[i].bitmap & (1<<bitno))
                         matches ++;
-                      if ((!glyphs[i].bitmap) & (1<<bitno))
+                      else
                         rmatches ++;
-                    } else if (col2)
+                    }
+                    else
                     {
-                      if ((glyphs[i].bitmap & (1<<bitno)) == 0)
-                        matches ++;
-                      if (((!glyphs[i].bitmap) & (1<<bitno)) == 0)
+                      if ((glyphs[i].bitmap) & (1<<bitno))
                         rmatches ++;
+                      else
+                        matches ++;
                     }
                     bitno++;
                   }
@@ -767,12 +751,14 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   best_glyph = i;
                   best_is_inverted = 0;
                 }
+#if 1
                 if (! tfb->bw && rmatches > best_matches)
                 {
                   best_matches = rmatches;
                   best_glyph = i;
                   best_is_inverted = 1;
                 }
+#endif
               }
 
               /* XXX: re-calibrate color to actual best colors for glyph*/
