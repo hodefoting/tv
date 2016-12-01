@@ -733,7 +733,7 @@ void print_status (void)
   }\
 
     CLEAR
-#if 1
+#if 0
   printf ("v:%d:%d ", tfb.tv_mode, sixel_is_supported());
 #endif
 
@@ -852,7 +852,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else if (!strcmp (argv[x], "-j"))
     {
-      tfb->do_jitter = 1;
+      do_jitter = 1;
     }
     else if (!strcmp (argv[x], "-dd"))
     {
@@ -1202,16 +1202,12 @@ gen_thumb (const char *path, uint8_t *rgba, int w, int h)
 }
 
 int clear = 0;
+extern int frame_no;
 
 static inline float mask_a (int x, int y, int c)
 {
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
 }
-
-int frame_no = 0;
-
-#define XJIT  (do_jitter?(((frame_no+1)%4)/2):0)
-#define YJIT  (do_jitter?((frame_no%4)%2):0)
 
 void redraw()
 {
@@ -1220,7 +1216,6 @@ void redraw()
                
   unsigned char *rgba = calloc (outw * 4 * outh, 1);
 
-  frame_no ++;
 
   if(image)
   {
@@ -1231,8 +1226,8 @@ void redraw()
                     outw,
                     outh,
                     outw * 4,
-                    floor(x_offset + XJIT * factor),
-                    floor(y_offset + YJIT * factor / aspect),
+                    floor(x_offset ),
+                    floor(y_offset ),
                     factor,
                     aspect,
                     rotate,
@@ -1323,20 +1318,24 @@ void redraw()
            i+= 4;
          }
      }
-     else if (tfb.do_dither)
+     else if (tfb.do_dither && 
+              (tfb.tv_mode != TV_SIXEL) &&
+              (tfb.tv_mode != TV_SIXEL_HI)
+              )
      {
        int i = 0;
        for (int y = 0; y < outh; y++)
          for (int x = 0; x < outw; x++)
          {
-           long graydiff = 
+           long graydiff =
+             tfb.term256?
              (rgba[i+0] - rgba[i+1]) * (rgba[i+0] - rgba[i+1]) +
              (rgba[i+2] - rgba[i+1]) * (rgba[i+2] - rgba[i+1]) +
-             (rgba[i+2] - rgba[i+0]) * (rgba[i+2] - rgba[i+0]);
+             (rgba[i+2] - rgba[i+0]) * (rgba[i+2] - rgba[i+0]):2001;
 
            if (graydiff < 2000) /* force to gray, and separate dither */
            {
-             int val = rgba[i+1] + (mask_a(x/1.66, y/1.66, 0) - 0.5) * 255.0 / 17;
+             int val = rgba[i+1] + (mask_a(x/1.66, y/1.66, frame_no) - 0.5) * 255.0 / 17;
 
              if (val > 255) val = 255;
              if (val < 0) val = 0;
@@ -1349,7 +1348,7 @@ void redraw()
            for (int c = 0; c < 3; c++)
            {
              /* we uses a 2x2 sized dither mask - the dither targets quarter blocks */
-             int val = rgba[i+c] + (mask_a(x/1.66, y/1.66, 0) - 0.5) * 255.0 / 5;
+             int val = rgba[i+c] + (mask_a(x/1.66, y/1.66, frame_no) - 0.5) * 255.0 / 5;
              if (val > 255) val = 255;
              if (val < 0) val = 0;
              rgba[i+c] = val;

@@ -17,7 +17,7 @@
 #include "tv.h"
 
 #include "glyphs.inc"
-
+extern int do_jitter;
 static char outbuf[1024*1024];
 static int outpos = 0;
 
@@ -399,6 +399,7 @@ void blit_sixel_pal (unsigned int        *pal,
   sixel_end ();
 }
 
+int frame_no = 0;
 
 void dither_rgba (Tfb *tfb,
                 const unsigned char *rgba,
@@ -436,11 +437,18 @@ void dither_rgba (Tfb *tfb,
             dithered[1] = rgba[offset+1];
             dithered[2] = rgba[offset+2];
             dithered[3] = rgba[offset+3];
-            if (tfb->do_dither)
+            if (tfb->do_dither &&
+             ((dithered[0] > 8) ||
+              (dithered[1] > 8) ||
+              (dithered[2] > 8)) &&
+             ((dithered[0] < 253) ||
+              (dithered[1] < 253) ||
+              (dithered[2] < 253))              
+            )
             {
-              dithered[0] += mask (x, y, 0) * 255/(red_levels-1);
-              dithered[1] += mask (x, y, 1) * 255/(green_levels-1);
-              dithered[2] += mask (x, y, 2) * 255/(blue_levels-1);
+              dithered[0] += mask (x, y, 0 + frame_no) * 255/(red_levels-1);
+              dithered[1] += mask (x, y, 1 + frame_no) * 255/(green_levels-1);
+              dithered[2] += mask (x, y, 2 + frame_no) * 255/(blue_levels-1);
             }
             else
             {
@@ -555,8 +563,14 @@ void set_bg(Tfb *tfb, int red, int green, int blue)
   }
 }
 
+
+#define XJIT  (do_jitter?(((frame_no+1)%4)/2):0)
+#define YJIT  (do_jitter?((frame_no%4)%2):0)
+
+
 void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 {
+  frame_no ++;
   switch (tfb->tv_mode)
   {
     case TV_ASCII:
@@ -573,9 +587,9 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
         if (tfb->interactive == 0 || !stdin_got_data (1))
         {
           int x, y;
-          for (y = 0; y < outh-2; y+=2)
+          for (y = YJIT; y < outh-2; y+=2)
           {
-            for (x = 0; x < outw; x+=2)
+            for (x = XJIT; x < outw; x+=2)
             {
               static char *ascii_quarts[]={" ","`","'","\"",",","[","/","P",".","\\","]","?","o","b","d","8",NULL};
               int bitmask = 0;
