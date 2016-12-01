@@ -16,33 +16,8 @@
 #include <assert.h>
 #include "tv.h"
 
-#if 1
-static inline long coldiff(uint32_t col1, uint32_t col2)
-{
-  long sum = 0;
-  int v = (col1 & 0xff) - (col2 & 0xff);
-  sum += v*v;
-  v = ((col1>>8) & 0xff) - ((col2>>8) & 0xff);
-  sum += v*v;
-  v = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
-  sum += v*v;
-  return sum;
-}
-#else
-static inline long coldiff(uint32_t col1, uint32_t col2)
-{
-  long sum = 0;
-  int v = (col1 & 0xff) - (col2 & 0xff);
-  sum += v*v;
-  v = ((col1) & 0xff00) - ((col2) & 0xff00);
-  sum += v*v;
-  v = ((col1) & 0xff0000) - ((col2) & 0xff0000);
-  sum += v*v;
-  return sum;
-}
-#endif
-
 #include "glyphs.inc"
+
 
 void sixel_out_char (int ch)
 {
@@ -148,6 +123,18 @@ static inline float mask_x (int x, int y, int c)
 
 static float (*mask)(int x, int y, int c) = mask_a;
 
+static inline long coldiff(uint32_t col1, uint32_t col2)
+{
+  long sum = 0;
+  int v = (col1 & 0xff) - (col2 & 0xff);
+  sum += v*v;
+  v = ((col1>>8) & 0xff) - ((col2>>8) & 0xff);
+  sum += v*v;
+  v = ((col1>>16) & 0xff) - ((col2>>16) & 0xff);
+  sum += v*v;
+  return sum;
+}
+
 typedef struct PalInfo {
   int start_pal;
   int end_pal;
@@ -159,13 +146,13 @@ typedef struct PalInfo {
 PalInfo infos[]={
  {8, 11, 2, 2, 2},
  {12, 15, 2, 3, 2},
- {16, 22, 2, 4, 2},
+ {16, 22, 4, 2},
  {24, 31, 3, 4, 2},
  {32, 63, 3, 3, 3},
  {64, 124, 4, 4, 4},
  {125, 149, 5, 5, 5},
- {150, 215, 5, 6, 5},
- {216, 239, 6, 6, 6},
+ {150, 215, 5, 6, 5},  
+ {216, 239, 6, 6, 6},  // this is the one used by term256 + grays
  {240, 251, 6, 8, 5},  // should use this one for 8bpp fb - and leave 16 first c# alone
  {252, 255, 6, 7, 6},
  {256, 342, 8, 8, 4},
