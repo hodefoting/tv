@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
+#include <time.h>
 #include <libgen.h>
 #include <sys/time.h>
 #include <fcntl.h>
@@ -21,6 +22,7 @@
 #include <ftw.h>
 #include "tv.h"
 
+int do_jitter = 0;
 float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
@@ -415,6 +417,12 @@ EvReaction cmd_slideshow (void)
   return REDRAW;
 }
 
+EvReaction cmd_jitter (void)
+{
+  do_jitter = !do_jitter;
+  return REDRAW;
+}
+
 
 EvReaction cmd_verbosity (void)
 {
@@ -649,6 +657,7 @@ Action actions[] = {
   {"r",        cmd_shuffle},
   {"?",        cmd_help},
   {"j",        cmd_jump},
+  {"J",        cmd_jitter},
   {"x",        cmd_set_zoom},
   {"S",        cmd_set_delay},
 
@@ -840,6 +849,10 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     else if (!strcmp (argv[x], "-nd"))
     {
       tfb->do_dither = 0;
+    }
+    else if (!strcmp (argv[x], "-j"))
+    {
+      tfb->do_jitter = 1;
     }
     else if (!strcmp (argv[x], "-dd"))
     {
@@ -1195,12 +1208,19 @@ static inline float mask_a (int x, int y, int c)
   return ((((x + c * 67) + y * 236) * 119) & 255 ) / 128.0 / 2;
 }
 
+int frame_no = 0;
+
+#define XJIT  (do_jitter?(((frame_no+1)%4)/2):0)
+#define YJIT  (do_jitter?((frame_no%4)%2):0)
+
 void redraw()
 {
   int outw = desired_width;
   int outh = desired_height;
                
   unsigned char *rgba = calloc (outw * 4 * outh, 1);
+
+  frame_no ++;
 
   if(image)
   {
@@ -1211,8 +1231,8 @@ void redraw()
                     outw,
                     outh,
                     outw * 4,
-                    floor(x_offset),
-                    floor(y_offset),
+                    floor(x_offset + XJIT * factor),
+                    floor(y_offset + YJIT * factor / aspect),
                     factor,
                     aspect,
                     rotate,
@@ -1277,7 +1297,6 @@ void redraw()
       write_jpg (output_path, outw, outh, 4, rgba, outw * 4);
     exit(0);
   }
-
 
      if (tfb.bw && tfb.do_dither)
      {
@@ -1551,6 +1570,11 @@ main (int argc, char **argv)
           case REEVENT: goto ev_again;
           case RENONE:
           case REIDLE:
+            if (do_jitter)
+            {
+              goto interactive_load_image;
+            }
+
             usleep (0.10 * 1000.0 * 1000.0);
             if (slideshow)
             {

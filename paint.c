@@ -606,7 +606,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
 
           for (int y = 0; y < outh-GLYPH_HEIGHT 
                           && !( ((y/GLYPH_HEIGHT) % 10 == 0) &&
-                                tfb->interactive == 0 || stdin_got_data (1)
+                        (tfb->interactive == 0 || stdin_got_data (1))
             )
                           
                           ; y+= GLYPH_HEIGHT)
