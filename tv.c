@@ -44,6 +44,8 @@ float          DIVISOR        = 6.0;
 int            brightness     = 0;
 float          contrast       = 1.0;
 
+static int ftw_cb (const char *path, const struct stat *info, const int typeflag);
+
 Tfb tfb = {
 1,1,1,-1,0,0,1,0,0,TV_AUTO
 };
@@ -765,6 +767,33 @@ void print_status (void)
   }
 }
 
+void add_image (Tfb *tfb, char *path)
+{
+  images[images_c++] = strdup (path);
+  images[images_c] = NULL;
+}
+
+int is_dir (const char *path);
+
+void add_path (Tfb *tfb, char *path)
+{
+  char *p = path;
+  if (p[0]!='/')
+    p = realpath (path, NULL);
+
+  if (is_dir (p))
+  {
+    ftw (p, ftw_cb, 40);
+  }
+  else if (p) 
+  {
+    add_image (tfb, p);
+  }
+
+  if (p != path)
+    free (p);
+}
+
 void parse_args (Tfb *tfb, int argc, char **argv)
 {
   int x;
@@ -987,7 +1016,7 @@ void parse_args (Tfb *tfb, int argc, char **argv)
     }
     else
     {
-      images[images_c++] = argv[x];
+      add_path (tfb, argv[x]);
     }
   }
 }
@@ -1034,6 +1063,14 @@ int is_file (const char *path)
   return 0;
 }
 
+int is_dir (const char *path)
+{
+  struct stat stat_buf;
+  if (stat (path, &stat_buf)==0 &&
+      S_ISDIR(stat_buf.st_mode))
+    return 1;
+  return 0;
+}
 
 static void
 mk_ancestry_iter (const char *path)
@@ -1364,12 +1401,15 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
   {
     if (img_count && !drawn)
     {
+      /* first image is splash - making startup even for full system
+         spidered slideshow be instant 
+       */
       ensure_image ();
       redraw ();
       drawn = 1;
     }
 
-    switch ( (spider_count / SKIP) % 4  )
+    if(0)switch ( (spider_count / SKIP) % 4  )
     {
       case 0: fprintf (stdout, "\r- %li images of %li files", img_count, spider_count); break;
       case 1: fprintf (stdout, "\r/ %li images of %li files", img_count, spider_count); break;
@@ -1424,15 +1464,17 @@ main (int argc, char **argv)
 
   if (images_c <= 0)
     {
-      /* no arguments, launch the image viewer */
-      /*usage ();*/
+      if (getenv ("HOME"))
+        add_path (&tfb, getenv ("HOME"));
+      add_path (&tfb, "/media");
 
-      //ftw ("/home", ftw_cb, 40);
-      //ftw ("/media", ftw_cb, 40);
-      ftw ("/usr/share/wallpapers", ftw_cb, 40);
       verbosity = -1;
       slideshow = 1;
       delay = 7;
+    }
+  if (images_c <= 0)
+    {
+      add_path (&tfb, "/usr/share");
     }
 
   if (strstr (images[0], ".pdf") ||
