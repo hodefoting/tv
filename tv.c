@@ -27,7 +27,7 @@ float          y_offset       = 0.0;
 int            slideshow      = 0;
 float          delay          = 4.11f;
 float          time_remaining = 0.0;
-int            verbosity      = 1;
+int            verbosity      = 0;
 int            desired_width  = 1024;
 int            desired_height = 1024;
 int            image_no;
@@ -1468,7 +1468,7 @@ main (int argc, char **argv)
         add_path (&tfb, getenv ("HOME"));
       add_path (&tfb, "/media");
 
-      verbosity = -1;
+    //  verbosity = -1;
       slideshow = 1;
     }
   if (images_c <= 0)
