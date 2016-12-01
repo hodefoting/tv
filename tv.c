@@ -1518,7 +1518,7 @@ main (int argc, char **argv)
       print_status ();
       switch (handle_input())
         {
-          case REQUIT:  printf ("."); exit(0); break;
+          case REQUIT:  exit(0); break;
           case REDRAW: 
           case RELOAD:  goto interactive_load_image;
           case REEVENT: goto ev_again;
@@ -1582,6 +1582,7 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
     status_y = size.ws_row;
   }
   }
+
 
   if (sixel_is_supported () && tfb->tv_mode == TV_AUTO)
   {
@@ -1704,6 +1705,28 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       aspect = GLYPH_ASPECT;
     if (tfb->tv_mode != TV_AUTO)
       return tfb->tv_mode;
+
+
+    /* try to detect if we're supposed to do 256 color,
+       if we cannot do 256 color
+     */
+    if (getenv("TERM"))
+      if (!strcmp(getenv("TERM"), "screen")||
+          !strcmp(getenv("TERM"), "rxvt-unicode-256color") ||
+          !strcmp(getenv("TERM"), "xterm-256color")
+         )
+      {
+        tfb->term256 = 1;
+        tfb->do_dither = 1;
+      }
+    if (getenv("TERM_PROGRAM") &&
+        !strcmp(getenv("TERM_PROGRAM"), "Apple_Terminal"))
+      {
+        tfb->term256 = 1;
+        tfb->do_dither = 1;
+      }
+
+
     return TV_UTF8;
     return TV_ASCII;
   }
