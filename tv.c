@@ -25,7 +25,7 @@ float          factor         = -1.0;
 float          x_offset       = 0.0;
 float          y_offset       = 0.0;
 int            slideshow      = 0;
-float          delay          = 4.0;
+float          delay          = 4.11f;
 float          time_remaining = 0.0;
 int            verbosity      = 1;
 int            desired_width  = 1024;
@@ -408,6 +408,7 @@ EvReaction cmd_set_delay (void)
   fprintf (stderr, "\rnew delay: ");
   val = read_number ();
   delay = val;
+  time_remaining = delay;
   return REDRAW;
 }
 
@@ -1450,7 +1451,7 @@ main (int argc, char **argv)
       }
    }
 
-  time_remaining = delay;   /* do this initialization after
+  time_remaining = delay;   /* do this re-initialization after
                                argument parsing has settled down */
 
   if (tfb.interactive)
@@ -1469,7 +1470,6 @@ main (int argc, char **argv)
 
       verbosity = -1;
       slideshow = 1;
-      delay = 7;
     }
   if (images_c <= 0)
     {
@@ -1501,8 +1501,8 @@ main (int argc, char **argv)
       pclose (fp);
     }
 
-
-  for (image_no = 0; image_no < images_c; image_no++)
+  int done = 0;
+  while (!done)
   {
     interactive_load_image:
     if (0){}
@@ -1544,14 +1544,16 @@ main (int argc, char **argv)
       {
         usleep (delay * 1000.0 * 1000.0);
         printf ("\n");
-        drop_image ();
+        cmd_next ();
+      }
+      else
+      {
+        done = 1;
       }
     }
   }
 
-  if (image)
-    free (image);
-  image = NULL;
+  drop_image ();
   printf ("\r");
   return 0;
 }
