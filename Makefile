@@ -1,11 +1,11 @@
-CFLAGS=-std=c99  -g   -march=native
-
+CFLAGS=-std=c99  -g 
+FASTFLAGS=-march=native -ffast-math -O3 -funroll-loops  -fforce-addr -ftracer -fpeel-loops -fmerge-all-constants
 
 tv: *.c tv.h glyphs.inc
 	$(CC) $(CFLAGS) -o $@ *.c -lm `pkg-config --cflags --libs libjpeg libpng --static` 
 
 o3: *.c tv.h glyphs.inc
-	$(CC) $(CFLAGS) -o tv -O3 *.c -lm `pkg-config --cflags --libs libjpeg libpng --static` 
+	$(CC) $(CFLAGS) $(FASTFLAGS) -o tv *.c -lm `pkg-config --cflags --libs libjpeg libpng --static` 
 
 
 tv-static: gen-musl *.c
