@@ -616,7 +616,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
           /* quantization used for approximate matches */
           uint32_t mask = 0xe0e0e0e0;
 
-#define mask_eq(a,b)  (((a)&mask)==((b)&mask))
+#define approximately_equal(a,b)  (((a)&mask)==((b)&mask))
 
           for (int y = 0; y < outh-GLYPH_HEIGHT 
                           && !( ((y/GLYPH_HEIGHT) % 10 == 0) &&
@@ -735,7 +735,7 @@ void paint_rgba (Tfb *tfb, uint8_t *rgba, int outw, int outh)
                   for (int u = GLYPH_WIDTH-1; u >=0; u --)
                   {
                     uint32_t col = *((uint32_t*)(&rgba[rgbo2 + u * 4]));
-                    if (mask_eq(col, maxc)) 
+                    if (approximately_equal(col, maxc)) 
                     {
                       if (glyphs[i].bitmap & (1<<bitno))
                         matches ++;
