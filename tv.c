@@ -1412,6 +1412,67 @@ int ensure_image()
   return 0;
 }
 
+int done = 0;
+int dirty = 1;
+
+void tv_iteration(void)
+{
+    interactive_load_image:
+    if (0){}
+
+    if (ensure_image())
+      goto interactive_load_image;
+
+    if (dirty)
+    {
+      redraw ();
+      dirty = 0;
+    }
+    if (tfb.interactive)
+    {
+      ev_again:
+      print_status ();
+      switch (handle_input())
+        {
+          case REQUIT:  exit(0); break;
+          case REDRAW:  dirty = 1;
+          case RELOAD:  dirty = 1; goto interactive_load_image;
+          case REEVENT: goto ev_again;
+          case RENONE:
+          case REIDLE:
+            if (do_jitter)
+            {
+              goto interactive_load_image;
+            }
+
+            usleep (0.10 * 1000.0 * 1000.0);
+            if (slideshow)
+            {
+              time_remaining -= 0.1;
+              if (time_remaining < 0.0)
+              {
+                cmd_next ();
+                dirty = 1;
+                goto interactive_load_image;
+              }
+            }
+        }
+    }
+    else
+    {
+      if (image_no < images_c - 1)
+      {
+        usleep (delay * 1000.0 * 1000.0);
+        printf ("\n");
+        cmd_next ();
+      }
+      else
+      {
+        done = 1;
+      }
+    }
+}
+
 static long spider_count = 0;
 static long img_count = 0;
 static int drawn = 0;
@@ -1434,7 +1495,7 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
   spider_count ++;
 #if 1
 
-#define SKIP 30
+#define SKIP 200
   if ( (spider_count % SKIP) == 0)
   {
     if (images_c && !drawn)
@@ -1447,11 +1508,13 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
                        //      set, then reshuffle all but first
                        //      image afterwards..
       {
-        ensure_image ();
-        redraw ();
-        drawn = 1;
+        tv_iteration();
+
+        // we do iterations this way first and then normal way... easy :)
+
+        //drawn = 1;
       }
-    }
+}
 
     if(0)switch ( (spider_count / SKIP) % 4  )
     {
@@ -1465,6 +1528,7 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
 #undef SKIP
   return 0;
 }
+
 
 int
 main (int argc, char **argv)
@@ -1547,60 +1611,9 @@ main (int argc, char **argv)
       pclose (fp);
     }
 
-  int done = 0;
   while (!done)
   {
-    interactive_load_image:
-    if (0){}
-
-    if (ensure_image())
-      goto interactive_load_image;
-
-    redraw ();
-    if (tfb.interactive)
-    {
-      ev_again:
-      print_status ();
-      switch (handle_input())
-        {
-          case REQUIT:  exit(0); break;
-          case REDRAW: 
-          case RELOAD:  goto interactive_load_image;
-          case REEVENT: goto ev_again;
-          case RENONE:
-          case REIDLE:
-            if (do_jitter)
-            {
-              goto interactive_load_image;
-            }
-
-            usleep (0.10 * 1000.0 * 1000.0);
-            if (slideshow)
-            {
-              time_remaining -= 0.1;
-              if (time_remaining < 0.0)
-              {
-                cmd_next ();
-                goto interactive_load_image;
-              }
-            }
-            goto ev_again;
-            break;
-        }
-    }
-    else
-    {
-      if (image_no < images_c - 1)
-      {
-        usleep (delay * 1000.0 * 1000.0);
-        printf ("\n");
-        cmd_next ();
-      }
-      else
-      {
-        done = 1;
-      }
-    }
+    tv_iteration ();
   }
 
   drop_image ();
@@ -1783,7 +1796,6 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
        tfb->term256 = 0;
        tfb->do_dither = 0;
     }
-
 
     return TV_UTF8;
     return TV_ASCII;
