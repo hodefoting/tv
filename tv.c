@@ -195,6 +195,7 @@ typedef struct Action {
 
 char *message = NULL;
 int message_ttl = 0;
+int help_level = 0;
 
 EvReaction cmd_help (void)
 {
@@ -202,10 +203,11 @@ EvReaction cmd_help (void)
   {
     free (message);
     message = NULL;
+    message_ttl = 0;
   }
-  //else
+  else
   {
-    message = strdup ("zoom: 1wf+- pan: cursor keys  next prev: pgdn,space pgup backspace");
+    message = strdup ("H:help space:next backspace:prev ←↑→↓:pan +-:zoom r:shuffle f:zoom fit F:zoom fill v: toggle title");
     message_ttl = 50;
   }
   return REDRAW;
@@ -656,6 +658,7 @@ Action actions[] = {
   {"b",        cmd_bw},
   {"r",        cmd_shuffle},
   {"?",        cmd_help},
+  {"h",        cmd_help},
   {"j",        cmd_jump},
   {"J",        cmd_jitter},
   {"x",        cmd_set_zoom},
@@ -701,7 +704,7 @@ EvReaction handle_input (void)
            message = malloc (1200);
            message[0]=0;
          }
-         message_ttl = 4;
+         message_ttl = 10;
 
          sprintf (&message[strlen(message)], "%c(%i)", buf[0]>=32?buf[0]:' ', buf[0]);
          for (i = 1; i < length; i++)
@@ -741,7 +744,7 @@ void print_status (void)
   {
     CLEAR
 
-    printf ("%s |", message);
+    printf ("%s |  {%i}", message, message_ttl);
     if (message_ttl -- <= 0)
     {
       free (message);
@@ -1440,10 +1443,8 @@ void tv_iteration(void)
           case REEVENT: goto ev_again;
           case RENONE:
           case REIDLE:
-            if (do_jitter)
+            if (!do_jitter)
             {
-              goto interactive_load_image;
-            }
 
             usleep (0.10 * 1000.0 * 1000.0);
             if (slideshow)
@@ -1456,6 +1457,9 @@ void tv_iteration(void)
                 goto interactive_load_image;
               }
             }
+            }
+            else
+              dirty = 1;
         }
     }
     else
