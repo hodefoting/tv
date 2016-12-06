@@ -1495,7 +1495,7 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
   spider_count ++;
 #if 1
 
-#define SKIP 200
+#define SKIP 500
   if ( (spider_count % SKIP) == 0)
   {
     if (images_c && !drawn)
@@ -1503,17 +1503,12 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
       /* first image is splash - making startup even for full system
          spidered slideshow be instant 
        */
-      if (!do_shuffle) // XXX: there might be a better way of
+      if (do_shuffle) // XXX: there might be a better way of
                        //      getting a random of the first
                        //      set, then reshuffle all but first
                        //      image afterwards..
-      {
-        tv_iteration();
-
-        // we do iterations this way first and then normal way... easy :)
-
-        //drawn = 1;
-      }
+        cmd_shuffle ();
+      tv_iteration();
 }
 
     if(0)switch ( (spider_count / SKIP) % 4  )
@@ -1539,6 +1534,10 @@ main (int argc, char **argv)
    */
   desired_width = 80;
   desired_height = 25;
+
+  zero_origin = 1;
+  _nc_raw();
+
   parse_args (&tfb, argc, argv);
 
  if (output_path)
@@ -1562,11 +1561,6 @@ main (int argc, char **argv)
   time_remaining = delay;   /* do this re-initialization after
                                argument parsing has settled down */
 
-  if (tfb.interactive)
-  {
-    zero_origin = 1;
-    _nc_raw();
-  }
 
   images[images_c] = NULL;
 
