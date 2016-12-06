@@ -1500,14 +1500,16 @@ static int ftw_cb (const char *path, const struct stat *info, const int typeflag
   {
     if (images_c && !drawn)
     {
+      static int shuffled = 0;
       /* first image is splash - making startup even for full system
          spidered slideshow be instant 
        */
-      if (do_shuffle) // XXX: there might be a better way of
+      if (do_shuffle && !shuffled) // XXX: there might be a better way of
                        //      getting a random of the first
                        //      set, then reshuffle all but first
                        //      image afterwards..
         cmd_shuffle ();
+      shuffled = 1;
       tv_iteration();
 }
 
