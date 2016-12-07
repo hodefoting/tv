@@ -207,7 +207,7 @@ EvReaction cmd_help (void)
   }
   else
   {
-    message = strdup ("H:help space:next backspace:prev ←↑→↓:pan +-:zoom r:shuffle f:zoom fit F:zoom fill v: toggle title");
+    message = strdup ("H:help space:next ⌫:prev ←↑→↓:pan ⇧+←↑→↓:small pan  +-:zoom az:zoom small  r:shuffle f:fit F:fill w:zoom width v:toggle title s:slideshow S:set slide seconds g:grayscale j:jump to");
     message_ttl = 50;
   }
   return REDRAW;
@@ -726,13 +726,20 @@ const char *prepare_pdf_page (const char *path, int page_no)
   return "/tmp/tv-pdf.png";
 }
 
+struct winsize win_size = {0,0,0,0};
+
 void print_status (void)
 {
   int cleared = 0;
 
+  int statuslines = 1;
+
+  if (message)
+    statuslines += strlen (message) / win_size.ws_col + 1;
+
 #define CLEAR if ((cleared == 0) && tfb.interactive) {\
     cleared = 1;\
-    printf ( "[%d;%dH[2K", status_y, status_x);\
+    printf ( "[%d;%dH[2K", status_y - statuslines, status_x);\
   }\
 
     CLEAR
@@ -1626,8 +1633,9 @@ main (int argc, char **argv)
 /* XXX: why do I get compile errors for winsixe struct not having known size when init is moved to paint.c ?*/
 TvOutput init (Tfb *tfb, int *dw, int *dh)
 {
-  struct winsize size = {0,0,0,0};
+  
 
+  status_y = 25;
   if (set_w || set_h)
   {
     *dw = set_w;
@@ -1635,19 +1643,18 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
   }
   else
   {
-  int result = ioctl (0, TIOCGWINSZ, &size);
+  int result = ioctl (0, TIOCGWINSZ, &win_size);
   if (result) {
     *dw = 400; /* default dims - works for xterm which is small*/
     *dh = 300;
   }
   else
   {
-    *dw = size.ws_xpixel ;
-    *dh = size.ws_ypixel - (1.0*(size.ws_ypixel ))/(size.ws_row + 1) - 12;
-    status_y = size.ws_row;
+    *dw = win_size.ws_xpixel ;
+    *dh = win_size.ws_ypixel - (1.0*(win_size.ws_ypixel ))/(win_size.ws_row + 1) - 12;
+    status_y = win_size.ws_row;
   }
   }
-
 
   if (sixel_is_supported () && tfb->tv_mode == TV_AUTO)
   {
@@ -1754,14 +1761,14 @@ TvOutput init (Tfb *tfb, int *dw, int *dh)
       }
       else
       {
-        *dw = size.ws_col * GLYPH_WIDTH;
-        *dh = size.ws_row * GLYPH_HEIGHT;
+        *dw = win_size.ws_col * GLYPH_WIDTH;
+        *dh = win_size.ws_row * GLYPH_HEIGHT;
       }
     }
     else
     {
-      *dw = size.ws_col * 2;
-      *dh = size.ws_row * 2;
+      *dw = win_size.ws_col * 2;
+      *dh = win_size.ws_row * 2;
     }
 
     if (tfb->tv_mode == TV_ASCII)
